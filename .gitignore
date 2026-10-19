@@ -1,0 +1,8 @@
+/target
+/web/pkg
+/web/node_modules
+/web/dist
+.idea/workspace.xml
+.idea
+/.mcp.json
+/example.txt
