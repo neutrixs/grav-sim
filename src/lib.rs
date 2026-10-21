@@ -1,9 +1,9 @@
 pub mod body;
-pub mod number;
+pub mod fixed;
 
 use wasm_bindgen::prelude::*;
 use std::ops::{Add, Mul};
-use number::Fixed;
+use fixed::Fixed;
 
 pub struct Vector2D {
     x: Fixed,
