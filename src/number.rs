@@ -14,11 +14,23 @@ impl ops::Add<&Fixed> for &Fixed {
     }
 }
 
+impl ops::AddAssign<&Fixed> for Fixed {
+    fn add_assign(&mut self, rhs: &Fixed) {
+        self.0 += &rhs.0;
+    }
+}
+
 impl ops::Sub<&Fixed> for &Fixed {
     type Output = Fixed;
 
     fn sub(self, rhs: &Fixed) -> Fixed {
         Fixed(&self.0 - &rhs.0)
+    }
+}
+
+impl ops::SubAssign<&Fixed> for Fixed {
+    fn sub_assign(&mut self, rhs: &Fixed) {
+        self.0 -= &rhs.0;
     }
 }
 
@@ -35,6 +47,42 @@ impl ops::Div<&Fixed> for &Fixed {
 
     fn div(self, rhs: &Fixed) -> Fixed {
         Fixed((&self.0 << FRAC_BITS) / &rhs.0)
+    }
+}
+
+impl ops::Shl<usize> for &Fixed {
+    type Output = Fixed;
+    fn shl(self, n: usize) -> Fixed {
+        Fixed(&self.0 << n)
+    }
+}
+
+impl ops::ShlAssign<usize> for Fixed {
+    fn shl_assign(&mut self, n: usize) {
+        self.0 <<= n;
+    }
+}
+
+impl ops::Shr<usize> for &Fixed {
+    type Output = Fixed;
+    fn shr(self, n: usize) -> Fixed {
+        Fixed(&self.0 >> n)
+    }
+}
+
+impl ops::ShrAssign<usize> for Fixed {
+    fn shr_assign(&mut self, n: usize) {
+        self.0 >>= n;
+    }
+}
+
+impl Clone for Fixed {
+    fn clone(&self) -> Fixed {
+        Fixed(self.0.clone())
+    }
+
+    fn clone_from(&mut self, source: &Fixed) {
+        self.0.clone_from(&source.0);
     }
 }
 

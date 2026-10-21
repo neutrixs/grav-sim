@@ -7,4 +7,6 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
+num-bigint = "0.5.1"
 wasm-bindgen = "0.2.129"
+num-traits = "0.2.19"
