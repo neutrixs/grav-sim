@@ -4,24 +4,26 @@ use num_traits::{FromPrimitive, ToPrimitive};
 use std::ops;
 
 pub const FRAC_BITS: usize = 64;
+const FRAC_LIMBS: usize = FRAC_BITS / 32;
 
-pub struct DivScratch {
+pub struct Scratch {
     // u/v=q
+    // u*v=q
     u: Vec<u32>,
     v: Vec<u32>,
     q: Vec<u32>,
 }
 
-impl DivScratch {
+impl Scratch {
     pub fn new() -> Self {
-        DivScratch {
+        Scratch {
             u: Vec::new(), v: Vec::new(), q: Vec::new()
         }
     }
 }
 
 thread_local! {
-    static DIV_SCRATCH: RefCell<DivScratch> = RefCell::new(DivScratch::new());
+    static SCRATCH: RefCell<Scratch> = RefCell::new(Scratch::new());
 }
 
 pub struct Fixed(BigInt);
@@ -62,6 +64,24 @@ impl ops::Mul<&Fixed> for &Fixed {
     }
 }
 
+impl ops::MulAssign<&Fixed> for Fixed {
+    fn mul_assign(&mut self, rhs: &Fixed) {
+        SCRATCH.with(|s| {
+            let mut s = s.borrow_mut();
+            let s = &mut *s;
+            let sign = self.0.sign() * rhs.0.sign();
+
+            s.u.clear(); s.u.extend(self.0.iter_u32_digits());
+            s.v.clear(); s.v.extend(rhs.0.iter_u32_digits());
+            mul_mag(&s.u, &s.v, &mut s.q);
+
+            // >> FRAC_BITS = drop the bottom limbs
+            let shifted = s.q.get(FRAC_LIMBS..).unwrap_or(&[]);
+            self.0.assign_from_slice(sign, shifted);
+        });
+    }
+}
+
 impl ops::Div<&Fixed> for &Fixed {
     type Output = Fixed;
 
@@ -72,7 +92,7 @@ impl ops::Div<&Fixed> for &Fixed {
 
 impl ops::DivAssign<&Fixed> for Fixed {
     fn div_assign(&mut self, rhs: &Fixed) {
-        DIV_SCRATCH.with(|s| {
+        SCRATCH.with(|s| {
             let mut s = s.borrow_mut();
 
             let sign = self.0.sign() * rhs.0.sign();
@@ -147,7 +167,7 @@ impl Fixed {
 }
 
 // u / v = q   (u gets clobbered, ends up holding the remainder, shifted)
-fn div_mag(s: &mut DivScratch) {
+fn div_mag(s: &mut Scratch) {
     let (u, v, q) = (&mut s.u, &mut s.v, &mut s.q);
     let m = u.len();
     let n = v.len();
@@ -229,6 +249,21 @@ fn trim(x: &mut Vec<u32>) {
     while x.last() == Some(&0) { x.pop(); }
 }
 
+// p = a * b
+fn mul_mag(a: &[u32], b: &[u32], p: &mut Vec<u32>) {
+    p.clear();
+    p.resize(a.len() + b.len(), 0);
+    for i in 0..a.len() {
+        let mut carry = 0u64;
+        for j in 0..b.len() {
+            let t = p[i + j] as u64 + a[i] as u64 * b[j] as u64 + carry;
+            p[i + j] = t as u32;
+            carry = t >> 32;
+        }
+        p[i + b.len()] = carry as u32;
+    }
+}
+
 #[test]
 fn div_matches_num_bigint() {
     use num_bigint::{BigInt, Sign};
@@ -259,5 +294,40 @@ fn div_matches_num_bigint() {
         got /= b;
 
         assert_eq!(got.0, expected, "{} / {}", a.0, b.0);
+    }
+}
+
+#[test]
+fn mul_matches_num_bigint() {
+    use num_bigint::{BigInt, Sign};
+
+    let raw = |limbs: &[u32]| Fixed(BigInt::from_slice(Sign::Plus, limbs));
+
+    let mut cases: Vec<(Fixed, Fixed)> = [
+        (5.0, 2.0),
+        (-1.5, 0.25),
+        (-3.0, -7.5),
+        (0.0, 123.0),            // zero
+        (1e-12, -1e-12),         // tiny × tiny → truncates to 0, must not become -1
+        (123456.789, 98765.4321),
+    ]
+        .iter()
+        .map(|&(x, y)| (Fixed::from_f64(x), Fixed::from_f64(y)))
+        .collect();
+
+    // all-ones limbs: max carries everywhere
+    let ones = raw(&[0xFFFF_FFFF; 4]);
+    cases.push((ones.clone(), ones.clone()));
+
+    for (a, b) in &cases {
+        // expected: multiply magnitudes, shift, then apply sign (truncate toward zero)
+        let mag = (a.0.magnitude() * b.0.magnitude()) >> FRAC_BITS;
+        let expected = BigInt::from_biguint(a.0.sign() * b.0.sign(), mag);
+
+        // MulAssign version
+        let mut got = a.clone();
+        got *= b;
+
+        assert_eq!(got.0, expected, "{} * {}", a.0, b.0);
     }
 }
