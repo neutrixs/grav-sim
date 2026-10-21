@@ -26,6 +26,7 @@ thread_local! {
     static SCRATCH: RefCell<Scratch> = RefCell::new(Scratch::new());
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fixed(BigInt);
 
 impl ops::Add<&Fixed> for &Fixed {
