@@ -1,5 +1,6 @@
 use std::cell::RefCell;
-use num_bigint::BigInt;
+use std::mem::swap;
+use num_bigint::{BigInt, Sign};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::ops;
 
@@ -24,6 +25,7 @@ impl Scratch {
 
 thread_local! {
     static SCRATCH: RefCell<Scratch> = RefCell::new(Scratch::new());
+    static ST1: RefCell<Fixed> = RefCell::new(Fixed::from_f64(0f64));
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -154,12 +156,68 @@ impl Fixed {
     pub fn from_f64(v: f64) -> Fixed {
         Fixed(BigInt::from_f64(v * 2f64.powi(FRAC_BITS as i32)).unwrap())
     }
+    pub fn set_from_f64(&mut self, v: f64) {
+        let bits = v.to_bits();
+        let neg  = (bits >> 63) == 1;
+        let exp  = ((bits >> 52) & 0x7FF) as i64;    // 11 exponent bits
+        let frac = bits & ((1u64 << 52) - 1);        // 52 fraction bits
+        assert_ne!(exp, 0x7FF, "NaN or infinity");
+
+        // value = mant × 2^e
+        let (mant, e) = if exp == 0 {
+            (frac, -1074)                  // tiny "subnormal" numbers
+        } else {
+            (frac | (1 << 52), exp - 1075) // normal numbers: hidden leading 1
+        };
+
+        let sign = if mant == 0 { Sign::NoSign }
+        else if neg  { Sign::Minus }
+        else         { Sign::Plus };
+        self.0.assign_from_slice(sign, &[mant as u32, (mant >> 32) as u32]);
+
+        // × 2^e, plus × S for the Fixed scale
+        let shift = e + FRAC_BITS as i64;
+        if shift >= 0 { self.0 <<= shift as usize; }
+        else          { self.0 >>= (-shift) as usize; }
+    }
+
     pub fn to_f64(&self) -> f64 {
         self.0.to_f64().unwrap() / 2f64.powi(FRAC_BITS as i32)
     }
 
+    pub fn is_zero(&self) -> bool {
+        self.0.sign() == Sign::NoSign
+    }
+
+    pub fn set_zero(&mut self) {
+        self.0.assign_from_slice(Sign::NoSign, &[]);
+    }
+
     pub fn sqrt(&self) -> Fixed {
         Fixed((&self.0 << FRAC_BITS).sqrt())
+    }
+
+    pub fn sqrt_into(&self, target: &mut Fixed) {
+        if self.is_zero() {
+            target.set_zero();
+            return
+        }
+
+        ST1.with(|st1| {
+            let st1 = &mut *st1.borrow_mut();
+            target.set_from_f64(self.to_f64().sqrt() * (1.0 + 1e-12)); // first guess, made a bit higher
+
+            loop {
+                st1.clone_from(&self);
+                *st1 /= target;
+                *st1 += target;
+                *st1 >>= 1;
+                if *st1 >= *target {
+                    break;
+                }
+                swap(&mut *st1, &mut *target);
+            }
+        })
     }
 
     pub fn square(&self) -> Fixed {
@@ -330,5 +388,18 @@ fn mul_matches_num_bigint() {
         got *= b;
 
         assert_eq!(got.0, expected, "{} * {}", a.0, b.0);
+    }
+}
+
+#[test]
+fn sqrt_matches_num_bigint() {
+    for x in [0.0, 1.0, 2.0, 0.25, 1e-6, 123456.789, 1e12] {
+        let v = Fixed::from_f64(x);
+        let expected = (&v.0 << FRAC_BITS).sqrt();
+
+        let mut got = Fixed::from_f64(0.0);
+        v.sqrt_into(&mut got);
+
+        assert_eq!(got.0, expected, "sqrt({x})");
     }
 }
