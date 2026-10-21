@@ -1,11 +1,23 @@
-use wasm_bindgen::prelude::*;
+pub mod body;
+pub mod number;
 
-#[wasm_bindgen]
-pub fn greet(name: &str) -> String {
-    format!("Hello, {name}! (from Rust)")
+use wasm_bindgen::prelude::*;
+use std::ops::{Add, Mul};
+use number::Fixed;
+
+pub struct Vector2D {
+    x: Fixed,
+    y: Fixed,
 }
 
 #[wasm_bindgen]
-pub fn add(a: f64, b: f64) -> f64 {
-    a + b
+pub struct SimulationManager {
+    bodies: Vec<body::Body>,
+}
+
+#[wasm_bindgen]
+impl SimulationManager {
+    pub fn new() -> SimulationManager {
+        SimulationManager { bodies: Vec::new() }
+    }
 }
