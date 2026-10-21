@@ -223,6 +223,11 @@ impl Fixed {
     pub fn square(&self) -> Fixed {
         self * self
     }
+
+    pub fn square_into(&self, target: &mut Fixed) {
+        target.clone_from(&self);
+        *target *= self;
+    }
 }
 
 // u / v = q   (u gets clobbered, ends up holding the remainder, shifted)
