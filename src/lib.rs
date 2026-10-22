@@ -6,6 +6,19 @@ use fixed::Fixed;
 use std::ops;
 use wasm_bindgen::prelude::wasm_bindgen;
 
+// N reusable Fixed values, for thread_local scratch space:
+//     static SCRATCH: RefCell<FixedScratch<3>> = RefCell::new(FixedScratch::new());
+//     let [s1, s2, s3] = &mut scratch.0;
+// A function holding the borrow must not call another function that borrows
+// the same static, or the RefCell panics ("already borrowed").
+pub struct FixedScratch<const N: usize>(pub [Fixed; N]);
+
+impl<const N: usize> FixedScratch<N> {
+    pub fn new() -> Self {
+        FixedScratch(std::array::from_fn(|_| Fixed::from_f64(0.)))
+    }
+}
+
 pub struct Vector2D {
     x: Fixed,
     y: Fixed,

@@ -1,23 +1,8 @@
 use crate::{BodyRetrieved, Vector2D};
 use crate::fixed::Fixed;
+use crate::FixedScratch;
 use crate::sim::SimError;
 use std::cell::RefCell;
-
-struct Scratch {
-    s1: Fixed,
-    s2: Fixed,
-    s3: Fixed,
-}
-
-impl Scratch {
-    fn new() -> Scratch {
-        Scratch {
-            s1: Fixed::from_f64(0.),
-            s2: Fixed::from_f64(0.),
-            s3: Fixed::from_f64(0.),
-        }
-    }
-}
 
 pub struct Body {
     pos: Vector2D,
@@ -29,7 +14,7 @@ pub struct Body {
 }
 
 thread_local! {
-    static SCRATCH: RefCell<Scratch> = RefCell::new(Scratch::new());
+    static SCRATCH: RefCell<FixedScratch<3>> = RefCell::new(FixedScratch::new());
 }
 
 impl Body {
@@ -80,9 +65,7 @@ impl Body {
     pub fn overlap_with(&self, other: &Body, touch_is_overlap: bool) -> bool {
         SCRATCH.with(|scratch| {
             let s = &mut *scratch.borrow_mut();
-            let s1 = &mut s.s1;
-            let s2 = &mut s.s2;
-            let s3 = &mut s.s3;
+            let [s1, s2, s3] = &mut s.0;
 
             s1.clone_from(&self.radius);
             *s1 += &other.radius;

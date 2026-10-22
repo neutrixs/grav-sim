@@ -3,6 +3,7 @@ use std::mem::swap;
 use num_bigint::{BigInt, Sign};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::ops;
+use crate::FixedScratch;
 
 pub const FRAC_BITS: usize = 64;
 const FRAC_LIMBS: usize = FRAC_BITS / 32;
@@ -25,8 +26,7 @@ impl Scratch {
 
 thread_local! {
     static SCRATCH: RefCell<Scratch> = RefCell::new(Scratch::new());
-    static ST1: RefCell<Fixed> = RefCell::new(Fixed::from_f64(0f64));
-    static ST2: RefCell<Fixed> = RefCell::new(Fixed::from_f64(0f64));
+    static FIXED_SCRATCH: RefCell<FixedScratch<2>> = RefCell::new(FixedScratch::new());
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -203,9 +203,9 @@ impl Fixed {
             return
         }
 
-        ST1.with(|st1| ST2.with(|st2| {
-            let st1 = &mut *st1.borrow_mut();
-            let st2 = &mut *st2.borrow_mut();
+        FIXED_SCRATCH.with(|s| {
+            let s = &mut *s.borrow_mut();
+            let [st1, st2] = &mut s.0;
             swap(&mut *st2, &mut *self);
             self.set_from_f64(st2.to_f64().sqrt() * (1.0 + 1e-12)); // first guess, made a bit higher
 
@@ -219,7 +219,7 @@ impl Fixed {
                 }
                 swap(&mut *st1, &mut *self);
             }
-        }))
+        })
     }
 
     pub fn square(&self) -> Fixed {
@@ -227,8 +227,9 @@ impl Fixed {
     }
 
     pub fn square_assign(&mut self) {
-        ST1.with(|st1| {
-            let st1 = &mut *st1.borrow_mut();
+        FIXED_SCRATCH.with(|s| {
+            let s = &mut *s.borrow_mut();
+            let [st1, _] = &mut s.0;
             st1.clone_from(self);
             *self *= &*st1;
         })

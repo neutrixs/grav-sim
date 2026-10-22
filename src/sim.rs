@@ -1,9 +1,11 @@
+use std::cell::RefCell;
 use wasm_bindgen::JsError;
 use crate::body::Body;
 use wasm_bindgen::prelude::wasm_bindgen;
 use std::fmt;
 use crate::BodyRetrieved;
 use crate::fixed::Fixed;
+use crate::FixedScratch;
 
 #[derive(Debug)]
 pub enum SimError {
@@ -45,6 +47,10 @@ fn validate_dt(dt: f64) -> Result<Fixed, SimError> {
     }
 
     Ok(fixed)
+}
+
+thread_local! {
+    static SCRATCH: RefCell<FixedScratch<4>> = RefCell::new(FixedScratch::new())
 }
 
 #[wasm_bindgen]
