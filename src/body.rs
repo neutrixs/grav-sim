@@ -1,4 +1,4 @@
-use crate::Vector2D;
+use crate::{BodyRetrieved, Vector2D};
 use crate::fixed::Fixed;
 use crate::sim::SimError;
 use std::cell::RefCell;
@@ -107,5 +107,19 @@ impl Body {
                 s2 < s1
             }
        })
+    }
+
+    pub fn retrieve_data(&self) -> BodyRetrieved {
+        BodyRetrieved {
+            id: self.id,
+            pos_x: self.pos.x.to_f64(),
+            pos_y: self.pos.y.to_f64(),
+            v_x: self.v.x.to_f64(),
+            v_y: self.v.y.to_f64(),
+            a_x: self.a.x.to_f64(),
+            a_y: self.a.y.to_f64(),
+            radius: self.radius.to_f64(),
+            mass: self.mass.to_f64(),
+        }
     }
 }

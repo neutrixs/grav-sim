@@ -2,9 +2,8 @@ pub mod fixed;
 pub mod sim;
 pub mod body;
 
-use wasm_bindgen::prelude::*;
-use std::ops::{Add, Mul};
 use fixed::Fixed;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 pub struct Vector2D {
     x: Fixed,
@@ -12,13 +11,14 @@ pub struct Vector2D {
 }
 
 #[wasm_bindgen]
-pub struct SimulationManager {
-    bodies: Vec<body::Body>,
-}
-
-#[wasm_bindgen]
-impl SimulationManager {
-    pub fn new() -> SimulationManager {
-        SimulationManager { bodies: Vec::new() }
-    }
+pub struct BodyRetrieved {
+    pub id: usize,
+    pub pos_x: f64,
+    pub pos_y: f64,
+    pub v_x: f64,
+    pub v_y: f64,
+    pub a_x: f64,
+    pub a_y: f64,
+    pub mass: f64,
+    pub radius: f64,
 }

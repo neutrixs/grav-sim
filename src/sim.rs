@@ -2,6 +2,7 @@ use wasm_bindgen::JsError;
 use crate::body::Body;
 use wasm_bindgen::prelude::wasm_bindgen;
 use std::fmt;
+use crate::BodyRetrieved;
 
 #[derive(Debug)]
 pub enum SimError {
@@ -58,5 +59,15 @@ impl SimulationManager {
         self.bodies.push(body);
 
         Ok(())
+    }
+
+    pub fn retrieve_all(&self) -> Vec<BodyRetrieved> {
+        let mut retrieved: Vec<BodyRetrieved> = vec!();
+
+        for body in self.bodies.iter() {
+            retrieved.push(body.retrieve_data());
+        }
+
+        retrieved
     }
 }
