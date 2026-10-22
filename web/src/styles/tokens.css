@@ -6,6 +6,7 @@
   --text: #d6dde8;
   --text-dim: #7d8899;
   --panel: rgba(17, 20, 28, 0.85);
+  --panel-solid: #161a23; /* opaque version, for things that can't be translucent */
   --input: rgba(255, 255, 255, 0.04);
   --border: rgba(255, 255, 255, 0.08);
   --accent: #7aa2ff;

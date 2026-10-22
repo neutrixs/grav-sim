@@ -27,26 +27,26 @@
     <fieldset>
       <legend>Position</legend>
       <div class="grid">
-        <Field label="x" unit="m" bind:value={d.x} />
-        <Field label="y" unit="m" bind:value={d.y} />
+        <Field label="x" units="position" bind:value={d.x} />
+        <Field label="y" units="position" bind:value={d.y} />
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Velocity</legend>
       <div class="grid">
-        <Field label="vx" unit="m/s" bind:value={() => d!.vx, (v) => setVelocityXY(d!, v, d!.vy)} />
-        <Field label="vy" unit="m/s" bind:value={() => d!.vy, (v) => setVelocityXY(d!, d!.vx, v)} />
-        <Field label="|v|" unit="m/s" min={0} bind:value={() => d!.speed, (v) => setSpeed(d!, v)} />
-        <Field label="θ" unit="°" bind:value={() => d!.angle, (v) => setAngle(d!, v)} />
+        <Field label="vx" units="velocity" bind:value={() => d!.vx, (v) => setVelocityXY(d!, v, d!.vy)} />
+        <Field label="vy" units="velocity" bind:value={() => d!.vy, (v) => setVelocityXY(d!, d!.vx, v)} />
+        <Field label="|v|" units="velocity" min={0} bind:value={() => d!.speed, (v) => setSpeed(d!, v)} />
+        <Field label="θ" units="angle" bind:value={() => d!.angle, (v) => setAngle(d!, v)} />
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Body</legend>
       <div class="grid">
-        <Field label="mass" unit="kg" bind:value={d.mass} />
-        <Field label="r" unit="m" bind:value={d.radius} />
+        <Field label="mass" units="mass" bind:value={d.mass} />
+        <Field label="r" units="radius" bind:value={d.radius} />
       </div>
     </fieldset>
 

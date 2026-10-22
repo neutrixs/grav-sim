@@ -1,7 +1,10 @@
 <script lang="ts">
   import { sim } from '../state/sim.svelte'
+  import { unitOf } from '../state/units.svelte'
 
-  const fmt = (v: number) => v.toFixed(3)
+  // Positions follow the unit picked for the Position fields.
+  const unit = $derived(unitOf('position'))
+  const fmt = (v: number) => (v / unit.factor).toFixed(3)
 </script>
 
 <h2 class="section-title">Bodies <span class="count">{sim.bodies.length}</span></h2>
@@ -11,7 +14,7 @@
 {:else}
   <table>
     <thead>
-      <tr><th>id</th><th>x</th><th>y</th></tr>
+      <tr><th>id</th><th>x <span class="u">{unit.label}</span></th><th>y <span class="u">{unit.label}</span></th></tr>
     </thead>
     <tbody>
       {#each sim.bodies as b (b.id)}
@@ -48,6 +51,9 @@
   }
   td {
     padding: 2px 0;
+  }
+  .u {
+    opacity: 0.7;
   }
   th:first-child,
   td:first-child {

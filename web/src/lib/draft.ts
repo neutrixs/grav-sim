@@ -1,5 +1,6 @@
 import { type Camera, worldToScreen } from './camera'
 import { MIN_RADIUS_PX } from './bodies'
+import type { Unit } from './units'
 
 // A body being set up in the UI. Lives only on the JS side until it's added.
 export interface Draft {
@@ -85,6 +86,7 @@ export function drawDraft(
   showArrow: boolean,
   color: string,
   bg: string,
+  speedUnit: Unit,
 ) {
   const { cx, cy, tx, ty, r } = screenPoints(cam, w, h, d)
   ctx.save()
@@ -123,7 +125,7 @@ export function drawDraft(
 
       ctx.font = '11px ui-monospace, monospace'
       ctx.textBaseline = 'middle'
-      ctx.fillText(`${formatSpeed(Math.hypot(d.vx, d.vy))} m/s`, tx + ux * 10 + 4, ty + uy * 10)
+      ctx.fillText(`${formatSpeed(Math.hypot(d.vx, d.vy) / speedUnit.factor)} ${speedUnit.label}`, tx + ux * 10 + 4, ty + uy * 10)
     }
 
     // grab handle at the tip

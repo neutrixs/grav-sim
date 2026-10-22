@@ -30,8 +30,13 @@ export function attachInteraction(canvas: HTMLCanvasElement, size: Size, cam: Ca
     d.x = snap(cam, wx + grabDx)
     d.y = snap(cam, wy + grabDy)
   }
+  // The derived |v| and θ are rounded too (θ to 0.1°), so the fields stay short.
+  // That leaves them a hair off the exact polar form of (vx, vy), which is
+  // below what the mouse can place anyway. Typed values never go through here.
   const setVel = (d: Draft, wx: number, wy: number) => {
     setVelocityXY(d, snap(cam, wx - d.x), snap(cam, wy - d.y))
+    d.speed = snap(cam, d.speed)
+    d.angle = Number((Math.round(d.angle * 10) / 10).toFixed(1))
   }
 
   const onWheel = (e: WheelEvent) => {

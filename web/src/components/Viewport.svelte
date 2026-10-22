@@ -7,6 +7,7 @@
   import { sim } from '../state/sim.svelte'
   import { drafts } from '../state/draft.svelte'
   import { view } from '../state/view.svelte'
+  import { unitOf } from '../state/units.svelte'
 
   let canvas: HTMLCanvasElement
 
@@ -52,7 +53,7 @@
       ctx.clearRect(0, 0, w, h)
       drawGrid(ctx, cam, w, h, colors.grid)
       drawBodies(ctx, cam, w, h, sim.bodies, colors.body, colors.label)
-      if (drafts.draft) drawDraft(ctx, cam, w, h, drafts.draft, drafts.mode !== 'placing', colors.draft, colors.bg)
+      if (drafts.draft) drawDraft(ctx, cam, w, h, drafts.draft, drafts.mode !== 'placing', colors.draft, colors.bg, unitOf('velocity'))
       view.gridLabel = formatLength(gridStep(cam.scale) * 10)
 
       raf = requestAnimationFrame(frame)
