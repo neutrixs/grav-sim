@@ -3,6 +3,7 @@ use crate::body::Body;
 use wasm_bindgen::prelude::wasm_bindgen;
 use std::fmt;
 use crate::BodyRetrieved;
+use crate::fixed::Fixed;
 
 #[derive(Debug)]
 pub enum SimError {
@@ -11,6 +12,8 @@ pub enum SimError {
     InvalidRadius(f64),
     InvalidPosition(f64, f64),
     InvalidVelocity(f64, f64),
+    InvalidDt(f64),
+    InvalidStep(i32),
 }
 
 impl fmt::Display for SimError {
@@ -21,23 +24,43 @@ impl fmt::Display for SimError {
             SimError::InvalidRadius(r) => write!(f, "invalid radius: {r}"),
             SimError::InvalidPosition(px, py) => write!(f, "invalid position: {px}, {py}"),
             SimError::InvalidVelocity(vx, vy) => write!(f, "invalid velocity: {vx}, {vy}"),
+            SimError::InvalidDt(dt) => write!(f, "invalid dt: {dt}"),
+            SimError::InvalidStep(step) => write!(f, "invalid step: {step}"),
         }
     }
 }
 
 impl std::error::Error for SimError {}
 
+// dt must be finite and > 0, and still > 0 after conversion to fixed-point
+// (anything below 2^-FRAC_BITS would round down to a zero step).
+fn validate_dt(dt: f64) -> Result<Fixed, SimError> {
+    if !(dt.is_finite() && dt > 0.0) {
+        return Err(SimError::InvalidDt(dt));
+    }
+
+    let fixed = Fixed::from_f64(dt);
+    if fixed.is_zero() {
+        return Err(SimError::InvalidDt(dt));
+    }
+
+    Ok(fixed)
+}
+
 #[wasm_bindgen]
 pub struct SimulationManager {
     bodies: Vec<Body>,
     next_id: usize,
+    dt: Fixed,
+    elapsed: Fixed,
 }
 
 #[wasm_bindgen]
 impl SimulationManager {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> SimulationManager {
-        SimulationManager { bodies: Vec::new(), next_id: 0 }
+    pub fn new(dt: f64) -> Result<SimulationManager, JsError> {
+        let dt = validate_dt(dt)?;
+        Ok(SimulationManager { bodies: Vec::new(), next_id: 0, dt, elapsed: Fixed::from_f64(0.) })
     }
 
     pub fn add_body(
@@ -69,5 +92,37 @@ impl SimulationManager {
         }
 
         retrieved
+    }
+
+    pub fn dt(&self) -> f64 {
+        self.dt.to_f64()
+    }
+
+    pub fn set_dt(&mut self, dt: f64) -> Result<(), JsError> {
+        self.dt = validate_dt(dt)?;
+        Ok(())
+    }
+
+    pub fn time(&self) -> f64 {
+        self.elapsed.to_f64()
+    }
+
+    pub fn step(&mut self, n: i32) -> Result<f64, JsError> {
+        if n <= 0 {
+            return Err(JsError::from(SimError::InvalidStep(n)))
+        }
+
+        for _ in 0..n {
+            // add code for gravity, acceleration, collision
+
+            //
+
+
+        }
+
+        let elapsed_since_step = &self.dt * &Fixed::from_f64(f64::from(n));
+        self.elapsed += &elapsed_since_step;
+
+        Ok(self.elapsed.to_f64())
     }
 }
