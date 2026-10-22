@@ -26,6 +26,7 @@ impl Scratch {
 thread_local! {
     static SCRATCH: RefCell<Scratch> = RefCell::new(Scratch::new());
     static ST1: RefCell<Fixed> = RefCell::new(Fixed::from_f64(0f64));
+    static ST2: RefCell<Fixed> = RefCell::new(Fixed::from_f64(0f64));
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -197,36 +198,40 @@ impl Fixed {
         Fixed((&self.0 << FRAC_BITS).sqrt())
     }
 
-    pub fn sqrt_into(&self, target: &mut Fixed) {
+    pub fn sqrt_assign(&mut self) {
         if self.is_zero() {
-            target.set_zero();
             return
         }
 
-        ST1.with(|st1| {
+        ST1.with(|st1| ST2.with(|st2| {
             let st1 = &mut *st1.borrow_mut();
-            target.set_from_f64(self.to_f64().sqrt() * (1.0 + 1e-12)); // first guess, made a bit higher
+            let st2 = &mut *st2.borrow_mut();
+            swap(&mut *st2, &mut *self);
+            self.set_from_f64(st2.to_f64().sqrt() * (1.0 + 1e-12)); // first guess, made a bit higher
 
             loop {
-                st1.clone_from(&self);
-                *st1 /= target;
-                *st1 += target;
+                st1.clone_from(&st2);
+                *st1 /= self;
+                *st1 += self;
                 *st1 >>= 1;
-                if *st1 >= *target {
+                if *st1 >= *self {
                     break;
                 }
-                swap(&mut *st1, &mut *target);
+                swap(&mut *st1, &mut *self);
             }
-        })
+        }))
     }
 
     pub fn square(&self) -> Fixed {
         self * self
     }
 
-    pub fn square_into(&self, target: &mut Fixed) {
-        target.clone_from(&self);
-        *target *= self;
+    pub fn square_assign(&mut self) {
+        ST1.with(|st1| {
+            let st1 = &mut *st1.borrow_mut();
+            st1.clone_from(self);
+            *self *= &*st1;
+        })
     }
 }
 
@@ -402,8 +407,8 @@ fn sqrt_matches_num_bigint() {
         let v = Fixed::from_f64(x);
         let expected = (&v.0 << FRAC_BITS).sqrt();
 
-        let mut got = Fixed::from_f64(0.0);
-        v.sqrt_into(&mut got);
+        let mut got = v.clone();
+        got.sqrt_assign();
 
         assert_eq!(got.0, expected, "sqrt({x})");
     }
