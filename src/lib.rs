@@ -96,6 +96,19 @@ impl ops::DivAssign<&Fixed> for Vector2D {
     }
 }
 
+// clone_from reuses x's and y's existing buffers (via Fixed::clone_from),
+// so copying into a scratch vector doesn't allocate after warmup.
+impl Clone for Vector2D {
+    fn clone(&self) -> Vector2D {
+        Vector2D { x: self.x.clone(), y: self.y.clone() }
+    }
+
+    fn clone_from(&mut self, source: &Vector2D) {
+        self.x.clone_from(&source.x);
+        self.y.clone_from(&source.y);
+    }
+}
+
 #[wasm_bindgen]
 pub struct BodyRetrieved {
     pub id: usize,
