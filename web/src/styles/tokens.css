@@ -1,0 +1,23 @@
+/* Design tokens. Placeholder palette until the design language is decided. */
+:root {
+  /* colours */
+  --bg: #0b0d12;
+  --grid: #9fb3d1;
+  --text: #d6dde8;
+  --text-dim: #7d8899;
+  --panel: rgba(17, 20, 28, 0.85);
+  --input: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.08);
+  --accent: #7aa2ff;
+  --error: #ff7a7a;
+  --body: #f2c27b;
+
+  /* type */
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'JetBrains Mono', Consolas, monospace;
+
+  /* shape & spacing */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --edge: 16px; /* distance of floating UI from the window edge */
+}

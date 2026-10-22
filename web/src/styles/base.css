@@ -1,0 +1,13 @@
+:root {
+  color-scheme: dark;
+  font: 14px/1.4 var(--sans);
+  color: var(--text);
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}

@@ -1,5 +1,7 @@
 import { mount } from 'svelte'
-import './app.css'
+import './styles/tokens.css'
+import './styles/base.css'
+import './styles/ui.css'
 import App from './App.svelte'
 import init from '../pkg/grav_sim'
 
