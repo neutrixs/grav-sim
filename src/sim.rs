@@ -1,5 +1,5 @@
+use crate::body::Body;
 use wasm_bindgen::prelude::wasm_bindgen;
-use crate::Body;
 
 #[wasm_bindgen]
 pub struct SimulationManager {

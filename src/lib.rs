@@ -1,5 +1,6 @@
-pub mod body;
 pub mod fixed;
+pub mod sim;
+pub mod body;
 
 use wasm_bindgen::prelude::*;
 use std::ops::{Add, Mul};
