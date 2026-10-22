@@ -1,6 +1,7 @@
-use std::cell::RefCell;
-use crate::fixed::Fixed;
 use crate::Vector2D;
+use crate::fixed::Fixed;
+use crate::sim::SimError;
+use std::cell::RefCell;
 
 struct Scratch {
     s1: Fixed,
@@ -24,6 +25,7 @@ pub struct Body {
     a: Vector2D,
     mass: Fixed,
     radius: Fixed,
+    id: usize,
 }
 
 thread_local! {
@@ -31,6 +33,50 @@ thread_local! {
 }
 
 impl Body {
+    pub fn new(
+        pos_x: f64,
+        pos_y: f64,
+        v_x: f64,
+        v_y: f64,
+        mass: f64,
+        radius: f64,
+        id: usize
+    ) -> Result<Body, SimError> {
+        if !(mass.is_finite() && mass > 0.0) {
+            return Err(SimError::InvalidMass(mass))
+        }
+
+        if !(radius.is_finite() && radius > 0.0) {
+            return Err(SimError::InvalidRadius(radius))
+        }
+
+        if !(pos_x.is_finite() && pos_y.is_finite()) {
+            return Err(SimError::InvalidPosition(pos_x, pos_y))
+        }
+
+        if !(v_x.is_finite() && v_y.is_finite()) {
+            return Err(SimError::InvalidVelocity(v_x, v_y))
+        }
+
+        Ok(Body {
+            pos: Vector2D {
+                x: Fixed::from_f64(pos_x),
+                y: Fixed::from_f64(pos_y),
+            },
+            v: Vector2D {
+                x: Fixed::from_f64(v_x),
+                y: Fixed::from_f64(v_y),
+            },
+            a: Vector2D {
+                x: Fixed::from_f64(0.),
+                y: Fixed::from_f64(0.),
+            },
+            mass: Fixed::from_f64(mass),
+            radius: Fixed::from_f64(radius),
+            id,
+        })
+    }
+
     pub fn overlap_with(&self, other: &Body, touch_is_overlap: bool) -> bool {
         SCRATCH.with(|scratch| {
             let s = &mut *scratch.borrow_mut();
