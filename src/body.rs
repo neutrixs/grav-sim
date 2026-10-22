@@ -5,12 +5,12 @@ use crate::sim::SimError;
 use std::cell::RefCell;
 
 pub struct Body {
-    pos: Vector2D,
-    v: Vector2D,
-    a: Vector2D,
-    mass: Fixed,
-    radius: Fixed,
-    id: usize,
+    pub(crate) pos: Vector2D,
+    pub(crate) v: Vector2D,
+    pub(crate) a: Vector2D,
+    pub(crate) mass: Fixed,
+    pub(crate) radius: Fixed,
+    pub(crate) id: usize,
 }
 
 thread_local! {

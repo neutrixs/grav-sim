@@ -19,6 +19,16 @@ impl<const N: usize> FixedScratch<N> {
     }
 }
 
+pub struct FixedScratchVec<const N: usize>(pub [Vector2D; N]);
+impl<const N: usize> FixedScratchVec<N> {
+    pub fn new() -> Self {
+        FixedScratchVec(std::array::from_fn(|_| Vector2D {
+            x: Fixed::from_f64(0.),
+            y: Fixed::from_f64(0.),
+        }))
+    }
+}
+
 pub struct Vector2D {
     x: Fixed,
     y: Fixed,
