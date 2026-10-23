@@ -30,8 +30,8 @@ impl<const N: usize> FixedScratchVec<N> {
 }
 
 pub struct Vector2D {
-    x: Fixed,
-    y: Fixed,
+    pub x: Fixed,
+    pub y: Fixed,
 }
 
 impl ops::Add<&Vector2D> for &Vector2D {
