@@ -15,15 +15,48 @@
   let { label, units, unit: fixedUnit, value = $bindable(), min }: Props = $props()
 
   const unit = $derived(units ? unitOf(units) : { label: fixedUnit ?? '', factor: 1 })
+  const shown = $derived(String(toDisplay(value, unit)))
+
+  // While focused, the input holds free text that isn't parsed, so half-typed
+  // numbers like "0.00" or "1e" are left alone. It's only parsed and applied
+  // on Enter or blur; anything invalid snaps back to the last value.
+  let editing = $state(false)
+  let text = $state('')
+
+  function commit() {
+    const raw = text.trim()
+    const n = Number(raw)
+    if (raw !== '' && Number.isFinite(n) && (min === undefined || n >= min)) {
+      value = fromDisplay(n, unit)
+    }
+    // the new value, or the old one if invalid / rejected by the setter
+    text = String(toDisplay(value, unit))
+  }
+
+  function onkeydown(e: KeyboardEvent) {
+    // no preventDefault: Enter still submits the form, after the commit
+    if (e.key === 'Enter') commit()
+  }
 </script>
 
 <label class="field">
   <span class="tag">{label}</span>
   <input
-    type="number"
-    step="any"
-    {min}
-    bind:value={() => toDisplay(value, unit), (v) => (value = fromDisplay(v, unit))}
+    type="text"
+    inputmode="decimal"
+    autocomplete="off"
+    spellcheck="false"
+    value={editing ? text : shown}
+    oninput={(e) => (text = e.currentTarget.value)}
+    onfocus={() => {
+      text = shown
+      editing = true
+    }}
+    onblur={() => {
+      commit()
+      editing = false
+    }}
+    {onkeydown}
   />
   {#if units}
     <span class="unit">
@@ -75,12 +108,6 @@
     background: none;
     border: none;
     outline: none;
-    appearance: textfield;
-  }
-  input::-webkit-inner-spin-button,
-  input::-webkit-outer-spin-button {
-    appearance: none;
-    margin: 0;
   }
 
   /* Unit picker: looks like the plain unit tag, with a small caret */

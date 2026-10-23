@@ -57,7 +57,7 @@ class Sim {
 
   // Apply a settings change only if Rust accepts the dt it results in
   // (set_dt throws on NaN/∞, ≤ 0, or a step too small for fixed-point).
-  // A rejected change is dropped; the field just keeps showing what was typed.
+  // A rejected change is dropped, and the field snaps back to the current value.
   #commit(change: Partial<Pick<Sim, 'speed' | 'stepMode' | 'fixedDt' | 'dtFactor'>>) {
     const next = { speed: this.speed, stepMode: this.stepMode, fixedDt: this.fixedDt, dtFactor: this.dtFactor, ...change }
     const dt = next.stepMode === 'fixed' ? next.fixedDt : next.dtFactor * next.speed
