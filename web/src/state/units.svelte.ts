@@ -7,6 +7,8 @@ export const unitPrefs: Record<UnitGroup, string> = $state({
   velocity: 'm/s',
   angle: '°',
   mass: 'kg',
+  dt: 'ms',
+  speed: 's/s',
 })
 
 export function unitOf(group: UnitGroup): Unit {

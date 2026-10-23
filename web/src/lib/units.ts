@@ -26,6 +26,22 @@ const ANGLE: Unit[] = [
   { label: 'rad', factor: 180 / Math.PI },
 ]
 
+const DURATION: Unit[] = [
+  { label: 'ms', factor: 1e-3 },
+  { label: 's', factor: 1 },
+  { label: 'min', factor: 60 },
+  { label: 'h', factor: 3600 },
+  { label: 'd', factor: 86400 },
+]
+// Playback speed: simulated time per real second.
+const TIMESCALE: Unit[] = [
+  { label: 's/s', factor: 1 },
+  { label: 'min/s', factor: 60 },
+  { label: 'h/s', factor: 3600 },
+  { label: 'd/s', factor: 86400 },
+  { label: 'yr/s', factor: 31557600 }, // Julian year, 365.25 d
+]
+
 // Fields in the same group share one unit choice (x and y, vx/vy/|v|, …).
 export const UNIT_GROUPS = {
   position: LENGTH,
@@ -33,6 +49,8 @@ export const UNIT_GROUPS = {
   velocity: SPEED,
   angle: ANGLE,
   mass: MASS,
+  dt: DURATION,
+  speed: TIMESCALE,
 } satisfies Record<string, Unit[]>
 
 export type UnitGroup = keyof typeof UNIT_GROUPS

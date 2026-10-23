@@ -2,17 +2,19 @@
   import { type UnitGroup, UNIT_GROUPS, toDisplay, fromDisplay } from '../lib/units'
   import { unitPrefs, unitOf } from '../state/units.svelte'
 
-  // Number input laid out as [label | value | unit ▾] in one box.
-  // `value` is always in the stored unit; the field converts for display.
+  // Number input laid out as [label | value | unit] in one box.
+  // With `units`, the unit is a picker and `value` is always in the stored
+  // unit (the field converts for display). With `unit`, it's a fixed label.
   interface Props {
     label: string
-    units: UnitGroup
+    units?: UnitGroup
+    unit?: string
     value: number
     min?: number
   }
-  let { label, units, value = $bindable(), min }: Props = $props()
+  let { label, units, unit: fixedUnit, value = $bindable(), min }: Props = $props()
 
-  const unit = $derived(unitOf(units))
+  const unit = $derived(units ? unitOf(units) : { label: fixedUnit ?? '', factor: 1 })
 </script>
 
 <label class="field">
@@ -23,14 +25,18 @@
     {min}
     bind:value={() => toDisplay(value, unit), (v) => (value = fromDisplay(v, unit))}
   />
-  <span class="unit">
-    <select bind:value={unitPrefs[units]} aria-label="{label} unit">
-      {#each UNIT_GROUPS[units] as u (u.label)}
-        <option value={u.label}>{u.label}</option>
-      {/each}
-    </select>
-    <span class="caret">▾</span>
-  </span>
+  {#if units}
+    <span class="unit">
+      <select bind:value={unitPrefs[units]} aria-label="{label} unit">
+        {#each UNIT_GROUPS[units] as u (u.label)}
+          <option value={u.label}>{u.label}</option>
+        {/each}
+      </select>
+      <span class="caret">▾</span>
+    </span>
+  {:else if fixedUnit}
+    <span class="tag">{fixedUnit}</span>
+  {/if}
 </label>
 
 <style>
