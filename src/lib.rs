@@ -96,8 +96,6 @@ impl ops::DivAssign<&Fixed> for Vector2D {
     }
 }
 
-// clone_from reuses x's and y's existing buffers (via Fixed::clone_from),
-// so copying into a scratch vector doesn't allocate after warmup.
 impl Clone for Vector2D {
     fn clone(&self) -> Vector2D {
         Vector2D { x: self.x.clone(), y: self.y.clone() }
