@@ -66,7 +66,7 @@ impl SimulationManager {
     #[wasm_bindgen(constructor)]
     pub fn new(dt: f64) -> Result<SimulationManager, JsError> {
         let dt = validate_dt(dt)?;
-        Ok(SimulationManager { bodies: Vec::new(), next_id: 0, dt, elapsed: Fixed::from_f64(0.) })
+        Ok(SimulationManager { bodies: Vec::new(), next_id: 0, dt, elapsed: Fixed::zero() })
     }
 
     pub fn add_body(

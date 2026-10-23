@@ -15,17 +15,14 @@ pub struct FixedScratch<const N: usize>(pub [Fixed; N]);
 
 impl<const N: usize> FixedScratch<N> {
     pub fn new() -> Self {
-        FixedScratch(std::array::from_fn(|_| Fixed::from_f64(0.)))
+        FixedScratch(std::array::from_fn(|_| Fixed::zero()))
     }
 }
 
 pub struct FixedScratchVec<const N: usize>(pub [Vector2D; N]);
 impl<const N: usize> FixedScratchVec<N> {
     pub fn new() -> Self {
-        FixedScratchVec(std::array::from_fn(|_| Vector2D {
-            x: Fixed::from_f64(0.),
-            y: Fixed::from_f64(0.),
-        }))
+        FixedScratchVec(std::array::from_fn(|_| Vector2D::zero()))
     }
 }
 
@@ -93,6 +90,15 @@ impl ops::DivAssign<&Fixed> for Vector2D {
     fn div_assign(&mut self, rhs: &Fixed) {
         self.x /= rhs;
         self.y /= rhs;
+    }
+}
+
+impl Vector2D {
+    pub fn zero() -> Vector2D {
+        Vector2D {
+            x: Fixed::zero(),
+            y: Fixed::zero(),
+        }
     }
 }
 

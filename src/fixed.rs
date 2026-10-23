@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::mem::swap;
 use num_bigint::{BigInt, Sign};
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive, Zero};
 use std::ops;
 use crate::FixedScratch;
 
@@ -154,6 +154,9 @@ impl Clone for Fixed {
 }
 
 impl Fixed {
+    pub fn zero() -> Fixed {
+        Fixed(BigInt::zero())
+    }
     pub fn from_f64(v: f64) -> Fixed {
         Fixed(BigInt::from_f64(v * 2f64.powi(FRAC_BITS as i32)).unwrap())
     }

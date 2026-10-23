@@ -52,10 +52,7 @@ impl Body {
                 x: Fixed::from_f64(v_x),
                 y: Fixed::from_f64(v_y),
             },
-            a: Vector2D {
-                x: Fixed::from_f64(0.),
-                y: Fixed::from_f64(0.),
-            },
+            a: Vector2D::zero(),
             mass: Fixed::from_f64(mass),
             radius: Fixed::from_f64(radius),
             id,
