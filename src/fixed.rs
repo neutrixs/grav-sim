@@ -3,10 +3,19 @@ use std::mem::swap;
 use num_bigint::{BigInt, Sign};
 use num_traits::{FromPrimitive, ToPrimitive, Zero};
 use std::{fmt, ops};
+use std::sync::LazyLock;
 use crate::FixedScratch;
 
 pub const FRAC_BITS: usize = 64;
 const FRAC_LIMBS: usize = FRAC_BITS / 32;
+
+static G: LazyLock<Fixed> = LazyLock::new(|| {
+   if let Ok(g) = Fixed::from_ratio(667430.0, 1e16) {
+       return g;
+   }
+
+    unreachable!()
+});
 
 #[derive(Debug)]
 pub enum NumberError {
