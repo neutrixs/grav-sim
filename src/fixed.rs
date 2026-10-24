@@ -64,7 +64,10 @@ impl ops::Mul<&Fixed> for &Fixed {
     type Output = Fixed;
 
     fn mul(self, rhs: &Fixed) -> Fixed {
-        Fixed((&self.0 * &rhs.0) >> FRAC_BITS)
+        // shift the magnitude, then apply the sign: rounds toward zero
+        // (>> on a negative BigInt would round toward −∞)
+        let mag = (self.0.magnitude() * rhs.0.magnitude()) >> FRAC_BITS;
+        Fixed(BigInt::from_biguint(self.0.sign() * rhs.0.sign(), mag))
     }
 }
 
@@ -387,6 +390,7 @@ fn mul_matches_num_bigint() {
         (-3.0, -7.5),
         (0.0, 123.0),            // zero
         (1e-12, -1e-12),         // tiny × tiny → truncates to 0, must not become -1
+        (1e-12, 1e-12),          // positive: truncates to 0
         (123456.789, 98765.4321),
     ]
         .iter()
@@ -407,6 +411,7 @@ fn mul_matches_num_bigint() {
         got *= b;
 
         assert_eq!(got.0, expected, "{} * {}", a.0, b.0);
+        assert_eq!((a * b).0, expected, "Mul: {} * {}", a.0, b.0);
     }
 }
 
