@@ -288,6 +288,15 @@ impl Fixed {
             *self *= &*st1;
         })
     }
+
+    pub fn negate(&self) -> Fixed {
+        Fixed(-&self.0)
+    }
+
+    // only flips the sign, the limbs are reused (no allocation)
+    pub fn negate_assign(&mut self) {
+        self.0 = -std::mem::take(&mut self.0);
+    }
 }
 
 // u / v = q   (u gets clobbered, ends up holding the remainder, shifted)

@@ -100,6 +100,18 @@ impl Vector2D {
             y: Fixed::zero(),
         }
     }
+
+    pub fn negate(&self) -> Vector2D {
+        Vector2D {
+            x: self.x.negate(),
+            y: self.y.negate(),
+        }
+    }
+
+    pub fn negate_assign(&mut self) {
+        self.x.negate_assign();
+        self.y.negate_assign();
+    }
 }
 
 impl Clone for Vector2D {
