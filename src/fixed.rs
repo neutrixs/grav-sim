@@ -177,12 +177,17 @@ impl Fixed {
         let sign = if mant == 0 { Sign::NoSign }
         else if neg  { Sign::Minus }
         else         { Sign::Plus };
-        self.0.assign_from_slice(sign, &[mant as u32, (mant >> 32) as u32]);
-
         // × 2^e, plus × S for the Fixed scale
         let shift = e + FRAC_BITS as i64;
-        if shift >= 0 { self.0 <<= shift as usize; }
-        else          { self.0 >>= (-shift) as usize; }
+        if shift >= 0 {
+            self.0.assign_from_slice(sign, &[mant as u32, (mant >> 32) as u32]);
+            self.0 <<= shift as usize;
+        } else {
+            // shift the magnitude before applying the sign: >> on a negative
+            // BigInt rounds toward −∞, this truncates toward zero like from_f64
+            let mant = mant.checked_shr((-shift) as u32).unwrap_or(0);
+            self.0.assign_from_slice(sign, &[mant as u32, (mant >> 32) as u32]);
+        }
     }
 
     pub fn to_f64(&self) -> f64 {
