@@ -3,9 +3,18 @@ use wasm_bindgen::JsError;
 use crate::body::Body;
 use wasm_bindgen::prelude::wasm_bindgen;
 use std::fmt;
-use crate::BodyRetrieved;
+use std::sync::LazyLock;
+use crate::{BodyRetrieved, FixedScratchVec};
 use crate::fixed::Fixed;
 use crate::FixedScratch;
+
+static G: LazyLock<Fixed> = LazyLock::new(|| {
+    if let Ok(g) = Fixed::from_ratio(667430.0, 1e16) {
+        return g;
+    }
+
+    unreachable!()
+});
 
 #[derive(Debug)]
 pub enum SimError {
