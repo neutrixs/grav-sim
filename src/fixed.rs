@@ -2,11 +2,26 @@ use std::cell::RefCell;
 use std::mem::swap;
 use num_bigint::{BigInt, Sign};
 use num_traits::{FromPrimitive, ToPrimitive, Zero};
-use std::ops;
+use std::{fmt, ops};
 use crate::FixedScratch;
 
 pub const FRAC_BITS: usize = 64;
 const FRAC_LIMBS: usize = FRAC_BITS / 32;
+
+#[derive(Debug)]
+pub enum NumberError {
+    DivisionByZero
+}
+
+impl fmt::Display for NumberError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            NumberError::DivisionByZero => write!(f, "division by zero"),
+        }
+    }
+}
+
+impl std::error::Error for NumberError {}
 
 pub struct Scratch {
     // u/v=q
@@ -159,6 +174,34 @@ impl Clone for Fixed {
 impl Fixed {
     pub fn zero() -> Fixed {
         Fixed(BigInt::zero())
+    }
+    pub fn from_ratio(num: f64, den: f64) -> Result<Fixed, NumberError> {
+        if den == 0.0 {
+            return Err(NumberError::DivisionByZero);
+        }
+
+        FIXED_SCRATCH.with(|s| {
+            let [s1, _] = &mut s.borrow_mut().0;
+            let mut result = Fixed::from_f64(num);
+            s1.set_from_f64(den);
+            result /= s1;
+            Ok(result)
+        })
+    }
+    pub fn set_from_ratio(&mut self, num: f64, den: f64) -> Result<(), NumberError> {
+        if den == 0.0 {
+            return Err(NumberError::DivisionByZero);
+        }
+
+        FIXED_SCRATCH.with(|s| {
+            let [s1, _] = &mut s.borrow_mut().0;
+            self.set_from_f64(num);
+            s1.set_from_f64(den);
+
+            *self /= &s1;
+
+            Ok(())
+        })
     }
     pub fn from_f64(v: f64) -> Fixed {
         Fixed(BigInt::from_f64(v * 2f64.powi(FRAC_BITS as i32)).unwrap())
