@@ -1,4 +1,5 @@
-use crate::{BodyRetrieved, Vector2D};
+use crate::BodyRetrieved;
+use crate::vec::Vector2D;
 use crate::fixed::Fixed;
 use crate::FixedScratch;
 use crate::sim::SimError;
