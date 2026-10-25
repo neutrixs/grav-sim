@@ -50,7 +50,8 @@ fn validate_dt(dt: f64) -> Result<Fixed, SimError> {
 }
 
 thread_local! {
-    static SCRATCH: RefCell<FixedScratch<4>> = RefCell::new(FixedScratch::new())
+    static SCRATCH: RefCell<FixedScratch<4>> = RefCell::new(FixedScratch::new());
+    static SCRATCH_VEC: RefCell<FixedScratchVec<2>> = RefCell::new(FixedScratchVec::new());
 }
 
 #[wasm_bindgen]
@@ -117,13 +118,36 @@ impl SimulationManager {
         if n <= 0 {
             return Err(JsError::from(SimError::InvalidStep(n)))
         }
-
         for _ in 0..n {
-            // add code for gravity, acceleration, collision
+            // on every step, acceleration must be reset to 0 otherwise it'll keep accumulating
+            // from gravity (not how it works)
+            for body in self.bodies.iter_mut() {
+                body.a.set_zero();
+            }
 
-            //
+            for i in 0..self.bodies.len() {
+                let (left, right) = self.bodies.split_at_mut(i + 1);
+                let obj1 = &mut left[0];
 
+                for obj2 in right.iter_mut() {
+                    accumulate_gravity(obj1, obj2);
 
+                    //TODO: checks for collision
+                }
+            }
+
+            // acceleration is now settled, integrate their acceleration
+            for body in self.bodies.iter_mut() {
+                integrate_acceleration(body, &self.dt);
+            }
+
+            //TODO: for every collision, adjust their velocity
+
+            // at this point, every body's gravitational interaction with each other has been integrated
+            // as velocity
+            for body in self.bodies.iter_mut() {
+                integrate_velocity(body, &self.dt);
+            }
         }
 
         let elapsed_since_step = &self.dt * &Fixed::from_f64(f64::from(n));
@@ -131,4 +155,66 @@ impl SimulationManager {
 
         Ok(self.elapsed.to_f64())
     }
+}
+
+fn integrate_acceleration(body: &mut Body, dt: &Fixed) {
+    SCRATCH_VEC.with(|sv| {
+        let [sv1, _] = &mut sv.borrow_mut().0;
+
+        sv1.clone_from(&body.a);
+        *sv1 *= dt;
+
+        body.v += sv1;
+    })
+}
+
+fn integrate_velocity(body: &mut Body, dt: &Fixed) {
+    SCRATCH_VEC.with(|sv| {
+        let [sv1,_] = &mut sv.borrow_mut().0;
+
+        sv1.clone_from(&body.v);
+        *sv1 *= &dt;
+
+        body.pos += &sv1;
+    })
+}
+
+fn accumulate_gravity(body_a: &mut Body, body_b: &mut Body) {
+    SCRATCH_VEC.with(|sv| SCRATCH.with(|s|{
+        let [sv1,sv2] = &mut sv.borrow_mut().0;
+        let [s1, s2, _, _] = &mut s.borrow_mut().0;
+
+        // sv1: distance a->b (d)
+        sv1.clone_from(&body_b.pos);
+        *sv1 -= &body_a.pos;
+
+        // s1: |d|^2
+        sv1.dot_into(&sv1, s1);
+        // s2: |d|
+        s2.clone_from(s1);
+        s2.sqrt_assign();
+
+        // s1: |d|^2 * |d| = |d|^3
+        *s1 *= s2;
+
+        // let's say there's just no effect if they're exactly at the same place
+        if s1.is_zero() {
+            return;
+        }
+
+        // sv2: G*m*d/|d|^3
+        sv2.clone_from(sv1);
+        *sv2 *= &body_b.mu;
+        *sv2 /= &s1;
+
+        body_a.a += &sv2;
+
+        // body A done, now do the same for body B
+        sv1.negate_assign();
+        sv2.clone_from(sv1);
+        *sv2 *= &body_a.mu;
+        *sv2 /= &s1;
+
+        body_b.a += &sv2;
+    }))
 }
