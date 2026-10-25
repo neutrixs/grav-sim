@@ -127,7 +127,7 @@ impl SimulationManager {
 
             for i in 0..self.bodies.len() {
                 let (left, right) = self.bodies.split_at_mut(i + 1);
-                let obj1 = &mut left[0];
+                let obj1 = &mut left[i];
 
                 for obj2 in right.iter_mut() {
                     accumulate_gravity(obj1, obj2);
