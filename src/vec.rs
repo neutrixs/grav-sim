@@ -82,6 +82,11 @@ impl Vector2D {
         }
     }
 
+    pub fn set_zero(&mut self) {
+        self.x.set_zero();
+        self.y.set_zero();
+    }
+
     pub fn negate(&self) -> Vector2D {
         Vector2D {
             x: self.x.negate(),
