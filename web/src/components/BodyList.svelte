@@ -1,10 +1,6 @@
 <script lang="ts">
   import { sim } from '../state/sim.svelte'
-  import { unitOf } from '../state/units.svelte'
-
-  // Positions follow the unit picked for the Position fields.
-  const unit = $derived(unitOf('position'))
-  const fmt = (v: number) => (v / unit.factor).toFixed(3)
+  import { formatDistance } from '../lib/units'
 </script>
 
 <h2 class="section-title">Bodies <span class="count">{sim.bodies.length}</span></h2>
@@ -13,12 +9,13 @@
   <p class="empty">None yet</p>
 {:else}
   <table>
+    <colgroup><col class="id" /><col /><col /></colgroup>
     <thead>
-      <tr><th>id</th><th>x <span class="u">{unit.label}</span></th><th>y <span class="u">{unit.label}</span></th></tr>
+      <tr><th>id</th><th>x</th><th>y</th></tr>
     </thead>
     <tbody>
       {#each sim.bodies as b (b.id)}
-        <tr><td>#{b.id}</td><td>{fmt(b.x)}</td><td>{fmt(b.y)}</td></tr>
+        <tr><td>#{b.id}</td><td>{formatDistance(b.x)}</td><td>{formatDistance(b.y)}</td></tr>
       {/each}
     </tbody>
   </table>
@@ -39,10 +36,23 @@
     width: 100%;
     border-collapse: collapse;
     font: 12px var(--mono);
+    /* fixed column widths, so changing numbers don't shift the columns */
+    table-layout: fixed;
+  }
+  col.id {
+    width: 28px;
   }
   th,
   td {
     text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* keep the x and y columns from running into each other */
+  th + th,
+  td + td {
+    padding-left: 8px;
   }
   th {
     font-weight: normal;
@@ -51,9 +61,6 @@
   }
   td {
     padding: 2px 0;
-  }
-  .u {
-    opacity: 0.7;
   }
   th:first-child,
   td:first-child {

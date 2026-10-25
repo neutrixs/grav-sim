@@ -5,11 +5,15 @@ export interface Unit {
   factor: number // stored value = shown value × factor
 }
 
+const AU = 1.495978707e11 // m, astronomical unit (exact by definition)
+const LY = 9.4607304725808e15 // m, light-year (Julian year × c)
+
 const LENGTH: Unit[] = [
   { label: 'mm', factor: 1e-3 },
   { label: 'cm', factor: 1e-2 },
   { label: 'm', factor: 1 },
   { label: 'km', factor: 1e3 },
+  { label: 'AU', factor: AU },
 ]
 const SPEED: Unit[] = [
   { label: 'm/s', factor: 1 },
@@ -49,6 +53,9 @@ const TIMESCALE: Unit[] = [
   { label: 'h/s', factor: 3600 },
   { label: 'd/s', factor: 86400 },
   { label: 'yr/s', factor: 31557600 }, // Julian year, 365.25 d
+  { label: 'kyr/s', factor: 31557600e3 },
+  { label: 'Myr/s', factor: 31557600e6 },
+  { label: 'Gyr/s', factor: 31557600e9 },
 ]
 
 // Fields in the same group share one unit choice (x and y, vx/vy/|v|, …).
@@ -72,4 +79,28 @@ export function toDisplay(stored: number, u: Unit): number {
 
 export function fromDisplay(shown: number, u: Unit): number {
   return Number.isFinite(shown) ? Number((shown * u.factor).toPrecision(15)) : shown
+}
+
+// 4 significant figures, thousands grouped with spaces: "384 400", "0.1069".
+// Values past a million switch to e-notation ("1.23e13") so they stay short.
+export function formatSig(v: number): string {
+  if (Math.abs(v) >= 1e6) return v.toExponential(2).replace('+', '')
+  return v.toLocaleString('en-US', { maximumSignificantDigits: 4 }).replace(/,/g, ' ')
+}
+
+// Read-only distance with its unit picked to fit the size:
+// 384400000 → "384 400 km", 1.6e10 → "0.1069 AU", 1.5e20 → "15.86 kly".
+export function formatDistance(m: number): string {
+  const a = Math.abs(m)
+  const [v, label] =
+    a >= 1e9 * LY ? [m / LY / 1e9, 'Gly']
+    : a >= 1e6 * LY ? [m / LY / 1e6, 'Mly']
+    : a >= 1e3 * LY ? [m / LY / 1e3, 'kly']
+    : a >= LY ? [m / LY, 'ly']
+    : a >= 1e9 ? [m / AU, 'AU'] // past 1 million km, so km values stay short
+    : a >= 1e3 ? [m / 1e3, 'km']
+    : a >= 1 || a === 0 ? [m, 'm']
+    : a >= 1e-2 ? [m * 1e2, 'cm']
+    : [m * 1e3, 'mm']
+  return `${formatSig(v)} ${label}`
 }
