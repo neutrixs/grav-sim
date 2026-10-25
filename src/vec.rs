@@ -1,5 +1,11 @@
+use std::cell::RefCell;
 use crate::fixed::Fixed;
 use std::ops;
+use crate::FixedScratch;
+
+thread_local! {
+    static SCRATCH: RefCell<FixedScratch<1>> = RefCell::new(FixedScratch::new());
+}
 
 pub struct Vector2D {
     pub x: Fixed,
@@ -86,6 +92,37 @@ impl Vector2D {
     pub fn negate_assign(&mut self) {
         self.x.negate_assign();
         self.y.negate_assign();
+    }
+
+    pub fn dot(&self, rhs: &Vector2D) -> Fixed {
+        SCRATCH.with(|s| {
+            let [s1] = &mut s.borrow_mut().0;
+
+            let mut result = Fixed::zero();
+            result.clone_from(&self.x);
+            result *= &rhs.x;
+
+            s1.clone_from(&self.y);
+            *s1 *= &rhs.y;
+
+            result += s1;
+
+            result
+        })
+    }
+
+    pub fn dot_into(&self, rhs: &Vector2D, target: &mut Fixed) {
+        SCRATCH.with(|s| {
+            let [s1] = &mut s.borrow_mut().0;
+
+            target.clone_from(&self.x);
+            *target *= &rhs.x;
+
+            s1.clone_from(&self.y);
+            *s1 *= &rhs.y;
+
+            *target += s1;
+        })
     }
 }
 
