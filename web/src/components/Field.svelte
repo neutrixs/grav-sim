@@ -15,7 +15,13 @@
   let { label, units, unit: fixedUnit, value = $bindable(), min }: Props = $props()
 
   const unit = $derived(units ? unitOf(units) : { label: fixedUnit ?? '', factor: 1 })
-  const shown = $derived(String(toDisplay(value, unit)))
+  const shown = $derived(numText(toDisplay(value, unit)))
+
+  // Plain digits up to 1e12, e-notation beyond ("1e19" instead of twenty
+  // digits). Still exact, and still parses back when edited.
+  function numText(v: number): string {
+    return (Math.abs(v) >= 1e12 ? v.toExponential() : String(v)).replace('e+', 'e')
+  }
 
   // While focused, the input holds free text that isn't parsed, so half-typed
   // numbers like "0.00" or "1e" are left alone. It's only parsed and applied
@@ -30,7 +36,7 @@
       value = fromDisplay(n, unit)
     }
     // the new value, or the old one if invalid / rejected by the setter
-    text = String(toDisplay(value, unit))
+    text = numText(toDisplay(value, unit))
   }
 
   function onkeydown(e: KeyboardEvent) {
