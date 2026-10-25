@@ -1,5 +1,6 @@
 <script lang="ts">
   import Field from './Field.svelte'
+  import MassField from './MassField.svelte'
   import { type DraftMode, setVelocityXY, setSpeed, setAngle } from '../lib/draft'
   import { drafts } from '../state/draft.svelte'
 
@@ -44,8 +45,8 @@
 
     <fieldset>
       <legend>Body</legend>
-      <div class="grid">
-        <Field label="mass" units="mass" bind:value={d.mass} />
+      <div class="stack">
+        <MassField bind:value={d.mass} />
         <Field label="r" units="radius" bind:value={d.radius} />
       </div>
     </fieldset>
@@ -83,6 +84,12 @@
     display: grid;
     /* minmax(0, …) lets columns shrink below their content's width */
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  /* Body section: the mass field needs the full width for its presets */
+  .stack {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
   }
 

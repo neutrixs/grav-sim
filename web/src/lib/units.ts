@@ -16,10 +16,19 @@ const SPEED: Unit[] = [
   { label: 'km/h', factor: 1 / 3.6 },
   { label: 'km/s', factor: 1e3 },
 ]
+// Reference bodies, used as units ("2 Earth" = two Earth masses) and as
+// presets in the mass field.
+export const BODY_MASSES: Unit[] = [
+  { label: 'Moon', factor: 7.342e22 },
+  { label: 'Earth', factor: 5.972e24 },
+  { label: 'Jupiter', factor: 1.898e27 },
+  { label: 'Sun', factor: 1.989e30 },
+]
 const MASS: Unit[] = [
   { label: 'g', factor: 1e-3 },
   { label: 'kg', factor: 1 },
   { label: 't', factor: 1e3 },
+  ...BODY_MASSES,
 ]
 const ANGLE: Unit[] = [
   { label: '°', factor: 1 },
