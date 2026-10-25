@@ -4,6 +4,15 @@ use crate::fixed::Fixed;
 use crate::FixedScratch;
 use crate::sim::SimError;
 use std::cell::RefCell;
+use std::sync::LazyLock;
+
+static G: LazyLock<Fixed> = LazyLock::new(|| {
+    if let Ok(g) = Fixed::from_ratio(667430.0, 1e16) {
+        return g;
+    }
+
+    unreachable!()
+});
 
 pub struct Body {
     pub(crate) pos: Vector2D,
@@ -12,6 +21,7 @@ pub struct Body {
     pub(crate) mass: Fixed,
     pub(crate) radius: Fixed,
     pub(crate) id: usize,
+    pub(crate) mu: Fixed,
 }
 
 thread_local! {
@@ -44,6 +54,9 @@ impl Body {
             return Err(SimError::InvalidVelocity(v_x, v_y))
         }
 
+        let mass = Fixed::from_f64(mass);
+        let mu = &mass * &*G;
+
         Ok(Body {
             pos: Vector2D {
                 x: Fixed::from_f64(pos_x),
@@ -54,9 +67,10 @@ impl Body {
                 y: Fixed::from_f64(v_y),
             },
             a: Vector2D::zero(),
-            mass: Fixed::from_f64(mass),
             radius: Fixed::from_f64(radius),
+            mass,
             id,
+            mu,
         })
     }
 
