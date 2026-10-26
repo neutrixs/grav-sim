@@ -1,5 +1,6 @@
 <script lang="ts">
   import { sim } from '../state/sim.svelte'
+  import { view } from '../state/view.svelte'
   import { formatDistance } from '../lib/units'
 </script>
 
@@ -15,7 +16,19 @@
     </thead>
     <tbody>
       {#each sim.bodies as b (b.id)}
-        <tr><td>#{b.id}</td><td>{formatDistance(b.x)}</td><td>{formatDistance(b.y)}</td></tr>
+        {@const followed = view.following === b.id}
+        <tr class:followed>
+          <td>
+            <button
+              class="follow"
+              aria-pressed={followed}
+              title={followed ? 'Stop following' : 'Keep this body in the centre'}
+              onclick={() => view.toggleFollow(b.id)}>#{b.id}</button
+            >
+          </td>
+          <td>{formatDistance(b.x)}</td>
+          <td>{formatDistance(b.y)}</td>
+        </tr>
       {/each}
     </tbody>
   </table>
@@ -40,7 +53,7 @@
     table-layout: fixed;
   }
   col.id {
-    width: 28px;
+    width: 36px;
   }
   th,
   td {
@@ -66,5 +79,27 @@
   td:first-child {
     text-align: left;
     color: var(--text-dim);
+  }
+
+  /* The id doubles as the follow toggle */
+  .follow {
+    padding: 0 4px;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .follow:hover {
+    color: var(--text);
+    background: var(--border);
+  }
+  .followed td {
+    color: var(--accent);
+  }
+  .followed .follow {
+    color: var(--bg);
+    background: var(--accent);
   }
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { drawGrid, gridStep, formatLength } from '../lib/grid'
-  import { drawBodies } from '../lib/bodies'
+  import { bodyAt, drawBodies } from '../lib/bodies'
   import { drawDraft } from '../lib/draft'
   import { type Size, attachInteraction } from '../lib/interaction'
   import { sim } from '../state/sim.svelte'
@@ -30,7 +30,11 @@
     ro.observe(canvas)
     resize()
 
-    const detach = attachInteraction(canvas, size, cam, drafts)
+    const detach = attachInteraction(canvas, size, cam, drafts, {
+      bodyAt: (sx, sy) => bodyAt(cam, size.w, size.h, sim.bodies, sx, sy)?.id ?? null,
+      toggle: (id) => view.toggleFollow(id),
+      stop: () => (view.following = null),
+    })
 
     // Canvas can't use CSS variables directly, so read the tokens once.
     const css = getComputedStyle(canvas)
@@ -48,6 +52,15 @@
     let raf = 0
     const frame = (now: number) => {
       if (sim.running) sim.tick(now)
+
+      // Keep the followed body in the centre (zoom still works around it).
+      if (view.following !== null) {
+        const b = sim.bodies.find((b) => b.id === view.following)
+        if (b) {
+          cam.x = b.x
+          cam.y = b.y
+        } else view.following = null
+      }
 
       const { w, h } = size
       ctx.clearRect(0, 0, w, h)

@@ -16,12 +16,29 @@ function snap(cam: Camera, v: number): number {
   return Number((Math.round(v / q) * q).toPrecision(12))
 }
 
-// Wheel zoom, drag-to-pan, and placing / dragging the draft body.
-// Returns a function that removes all listeners.
-export function attachInteraction(canvas: HTMLCanvasElement, size: Size, cam: Camera, drafts: DraftState) {
+// How the canvas talks to the follow-a-body feature.
+export interface Follow {
+  bodyAt(sx: number, sy: number): number | null // id of the body under a screen point
+  toggle(id: number): void
+  stop(): void
+}
+
+// A press that moves less than this (px) is a click, not a pan.
+const CLICK_SLOP_PX = 4
+
+// Wheel zoom, drag-to-pan, clicking a body to follow it, and placing /
+// dragging the draft body. Returns a function that removes all listeners.
+export function attachInteraction(
+  canvas: HTMLCanvasElement,
+  size: Size,
+  cam: Camera,
+  drafts: DraftState,
+  follow: Follow,
+) {
   // What the current pointer drag is doing.
   let drag: 'pan' | 'position' | 'velocity' | null = null
   let grabDx = 0, grabDy = 0 // keeps the body from jumping to the cursor when grabbed off-centre
+  let panMoved = 0 // px dragged so far in the current pan
 
   const toWorld = (e: PointerEvent | WheelEvent) => screenToWorld(cam, size.w, size.h, e.offsetX, e.offsetY)
   const hit = (d: Draft, e: PointerEvent) => hitDraft(cam, size.w, size.h, d, e.offsetX, e.offsetY)
@@ -74,6 +91,7 @@ export function attachInteraction(canvas: HTMLCanvasElement, size: Size, cam: Ca
       }
     }
     drag = 'pan'
+    panMoved = 0
   }
 
   const onMove = (e: PointerEvent) => {
@@ -81,12 +99,16 @@ export function attachInteraction(canvas: HTMLCanvasElement, size: Size, cam: Ca
     const d = drafts.draft
     const mode = drafts.mode
 
-    if (drag === 'pan') pan(cam, e.movementX, e.movementY)
+    if (drag === 'pan') {
+      panMoved += Math.abs(e.movementX) + Math.abs(e.movementY)
+      if (panMoved > CLICK_SLOP_PX) follow.stop() // a real drag: let go of the followed body
+      pan(cam, e.movementX, e.movementY)
+    }
     else if (d && (drag === 'position' || (!drag && mode === 'placing'))) setPos(d, wx, wy)
     else if (d && (drag === 'velocity' || (!drag && mode === 'aiming'))) setVel(d, wx, wy)
 
     // cursor hint
-    if (!d) canvas.style.cursor = ''
+    if (!d) canvas.style.cursor = !drag && follow.bodyAt(e.offsetX, e.offsetY) !== null ? 'pointer' : ''
     else if (mode !== 'editing') canvas.style.cursor = 'crosshair'
     else if (!drag) {
       const target = hit(d, e)
@@ -94,7 +116,14 @@ export function attachInteraction(canvas: HTMLCanvasElement, size: Size, cam: Ca
     }
   }
 
-  const onUp = () => (drag = null)
+  const onUp = (e: PointerEvent) => {
+    // a press that didn't really move is a click: follow (or unfollow) the body under it
+    if (e.type === 'pointerup' && drag === 'pan' && panMoved <= CLICK_SLOP_PX) {
+      const id = follow.bodyAt(e.offsetX, e.offsetY)
+      if (id !== null) follow.toggle(id)
+    }
+    drag = null
+  }
 
   canvas.addEventListener('wheel', onWheel, { passive: false })
   canvas.addEventListener('pointerdown', onDown)

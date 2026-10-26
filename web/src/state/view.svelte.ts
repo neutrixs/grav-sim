@@ -7,6 +7,13 @@ class View {
 
   // Spacing of the thick grid lines, e.g. "10 m". Updated by the renderer.
   gridLabel = $state('')
+
+  // Id of the body the camera keeps centred, if any. Panning stops it.
+  following: number | null = $state(null)
+
+  toggleFollow(id: number) {
+    this.following = this.following === id ? null : id
+  }
 }
 
 export const view = new View()

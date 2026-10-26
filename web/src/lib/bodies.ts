@@ -24,6 +24,20 @@ export function snapshot(mng: SimulationManager): BodyData[] {
 
 // Bodies shrinking below this on screen are still drawn at this size.
 export const MIN_RADIUS_PX = 3
+// Extra click margin around a body, so tiny ones are still easy to hit.
+const HIT_SLACK_PX = 4
+
+// The body drawn under screen point (sx, sy), or null. Later bodies are
+// drawn on top, so they win when several overlap.
+export function bodyAt(cam: Camera, w: number, h: number, bodies: BodyData[], sx: number, sy: number): BodyData | null {
+  for (let i = bodies.length - 1; i >= 0; i--) {
+    const b = bodies[i]
+    const [bx, by] = worldToScreen(cam, w, h, b.x, b.y)
+    const r = Math.max(MIN_RADIUS_PX, b.radius * cam.scale) + HIT_SLACK_PX
+    if ((sx - bx) ** 2 + (sy - by) ** 2 <= r * r) return b
+  }
+  return null
+}
 
 export function drawBodies(
   ctx: CanvasRenderingContext2D,
