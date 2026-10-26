@@ -297,6 +297,22 @@ impl Fixed {
     pub fn negate_assign(&mut self) {
         self.0 = -std::mem::take(&mut self.0);
     }
+
+    pub fn max<'a>(&'a self, other: &'a Fixed) -> &'a Fixed {
+        if self > other {
+            self
+        } else {
+            other
+        }
+    }
+
+    pub fn min<'a>(&'a self, other: &'a Fixed) -> &'a Fixed {
+        if self < other {
+            self
+        } else {
+            other
+        }
+    }
 }
 
 // u / v = q   (u gets clobbered, ends up holding the remainder, shifted)
