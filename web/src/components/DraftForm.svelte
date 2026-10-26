@@ -1,6 +1,7 @@
 <script lang="ts">
   import Field from './Field.svelte'
-  import MassField from './MassField.svelte'
+  import RefField from './RefField.svelte'
+  import { BODY_MASSES, BODY_RADII } from '../lib/units'
   import { type DraftMode, setVelocityXY, setSpeed, setAngle } from '../lib/draft'
   import { drafts } from '../state/draft.svelte'
 
@@ -46,8 +47,8 @@
     <fieldset>
       <legend>Body</legend>
       <div class="stack">
-        <MassField bind:value={d.mass} />
-        <Field label="r" units="radius" bind:value={d.radius} />
+        <RefField label="mass" units="mass" refs={BODY_MASSES} bind:value={d.mass} />
+        <RefField label="r" units="radius" refs={BODY_RADII} bind:value={d.radius} />
       </div>
     </fieldset>
 
@@ -86,7 +87,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
-  /* Body section: the mass field needs the full width for its presets */
+  /* Body section: mass and radius need the full width for their presets */
   .stack {
     display: flex;
     flex-direction: column;

@@ -15,6 +15,13 @@ const LENGTH: Unit[] = [
   { label: 'km', factor: 1e3 },
   { label: 'AU', factor: AU },
 ]
+// Mean radii of the same reference bodies (Sun: IAU nominal).
+export const BODY_RADII: Unit[] = [
+  { label: 'Moon', factor: 1.7374e6 },
+  { label: 'Earth', factor: 6.371e6 },
+  { label: 'Jupiter', factor: 6.9911e7 },
+  { label: 'Sun', factor: 6.957e8 },
+]
 const SPEED: Unit[] = [
   { label: 'm/s', factor: 1 },
   { label: 'km/h', factor: 1 / 3.6 },
@@ -61,7 +68,7 @@ const TIMESCALE: Unit[] = [
 // Fields in the same group share one unit choice (x and y, vx/vy/|v|, …).
 export const UNIT_GROUPS = {
   position: LENGTH,
-  radius: LENGTH,
+  radius: [...LENGTH, ...BODY_RADII],
   velocity: SPEED,
   angle: ANGLE,
   mass: MASS,

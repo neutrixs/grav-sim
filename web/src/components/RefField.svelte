@@ -1,24 +1,30 @@
 <script lang="ts">
   import Field from './Field.svelte'
-  import { type Unit, BODY_MASSES } from '../lib/units'
+  import type { Unit } from '../lib/units'
   import { unitPrefs } from '../state/units.svelte'
 
-  // Mass field with reference bodies for a sense of scale: a chip sets the
-  // mass to exactly that body's, and the line below says which reference the
-  // current mass is closest to.
-  let { value = $bindable() }: { value: number } = $props()
+  // Field with reference bodies for a sense of scale (Moon … Sun): a chip sets
+  // the value to exactly that body's, and the line below says which reference
+  // the current value is closest to. Used for mass and radius.
+  interface Props {
+    label: string
+    units: 'mass' | 'radius'
+    refs: Unit[] // also present in the group's unit list, under the same labels
+    value: number
+  }
+  let { label, units, refs, value = $bindable() }: Props = $props()
 
   function pick(ref: Unit) {
     value = ref.factor
-    unitPrefs.mass = ref.label
+    unitPrefs[units] = ref.label
   }
 
-  // Closest reference on a log scale, if the mass is within 1000× of it.
+  // Closest reference on a log scale, if the value is within 1000× of it.
   const nearest = $derived.by(() => {
     if (!(value > 0)) return null
-    let best = BODY_MASSES[0]
+    let best = refs[0]
     let bestDist = Infinity
-    for (const ref of BODY_MASSES) {
+    for (const ref of refs) {
       const dist = Math.abs(Math.log10(value / ref.factor))
       if (dist < bestDist) {
         best = ref
@@ -29,22 +35,22 @@
   })
 </script>
 
-<div class="mass">
-  <Field label="mass" units="mass" bind:value />
+<div class="ref-field">
+  <Field {label} {units} bind:value />
 
   <div class="refs">
-    {#each BODY_MASSES as ref (ref.label)}
+    {#each refs as ref (ref.label)}
       <button type="button" class:active={value === ref.factor} onclick={() => pick(ref)}>{ref.label}</button>
     {/each}
   </div>
 
-  {#if nearest && unitPrefs.mass !== nearest.label}
+  {#if nearest && unitPrefs[units] !== nearest.label}
     <p class="near">≈ {Number((value / nearest.factor).toPrecision(3))} × {nearest.label}</p>
   {/if}
 </div>
 
 <style>
-  .mass {
+  .ref-field {
     display: flex;
     flex-direction: column;
     gap: 6px;
