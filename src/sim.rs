@@ -3,9 +3,18 @@ use wasm_bindgen::JsError;
 use crate::body::Body;
 use wasm_bindgen::prelude::wasm_bindgen;
 use std::fmt;
+use std::sync::LazyLock;
 use crate::{BodyRetrieved, FixedScratchVec};
 use crate::fixed::Fixed;
 use crate::FixedScratch;
+
+static BIAS_FACTOR: LazyLock<Fixed> = LazyLock::new(|| {
+   Fixed::from_f64(0.125)
+});
+
+static OVERLAP_ALLOWED: LazyLock<Fixed> = LazyLock::new(|| {
+    Fixed::from_f64(0.125)
+});
 
 #[derive(Debug)]
 pub enum SimError {
@@ -51,7 +60,7 @@ fn validate_dt(dt: f64) -> Result<Fixed, SimError> {
 
 thread_local! {
     static SCRATCH: RefCell<FixedScratch<4>> = RefCell::new(FixedScratch::new());
-    static SCRATCH_VEC: RefCell<FixedScratchVec<2>> = RefCell::new(FixedScratchVec::new());
+    static SCRATCH_VEC: RefCell<FixedScratchVec<3>> = RefCell::new(FixedScratchVec::new());
 }
 
 #[wasm_bindgen]
@@ -115,10 +124,13 @@ impl SimulationManager {
     }
 
     pub fn step(&mut self, n: i32) -> Result<f64, JsError> {
+        let mut overlaps: Vec<(usize, usize)> = Vec::new();
+
         if n <= 0 {
             return Err(JsError::from(SimError::InvalidStep(n)))
         }
         for _ in 0..n {
+            overlaps.clear();
             // on every step, acceleration must be reset to 0 otherwise it'll keep accumulating
             // from gravity (not how it works)
             for body in self.bodies.iter_mut() {
@@ -129,10 +141,10 @@ impl SimulationManager {
                 let (left, right) = self.bodies.split_at_mut(i + 1);
                 let obj1 = &mut left[i];
 
-                for obj2 in right.iter_mut() {
-                    accumulate_gravity(obj1, obj2);
-
-                    //TODO: checks for collision
+                for (j, obj2)in right.iter_mut().enumerate() {
+                    if accumulate_gravity(obj1, obj2) {
+                        overlaps.push((i, i + 1 + j))
+                    }
                 }
             }
 
@@ -141,7 +153,13 @@ impl SimulationManager {
                 integrate_acceleration(body, &self.dt);
             }
 
-            //TODO: for every collision, adjust their velocity
+            for (id_1, id_2) in overlaps.iter() {
+                let (first, second) = self.bodies.split_at_mut(*id_2);
+                let a = &mut first[*id_1];
+                let b = &mut second[0];
+
+                fix_collision(a, b, &self.dt);
+            }
 
             // at this point, every body's gravitational interaction with each other has been integrated
             // as velocity
@@ -157,9 +175,105 @@ impl SimulationManager {
     }
 }
 
+fn fix_collision(a: &mut Body, b: &mut Body, dt: &Fixed) {
+    SCRATCH_VEC.with(|sv| SCRATCH.with(|s| {
+        let [s1, s2, s3, s4] = &mut s.borrow_mut().0;
+        let [sv1, sv2, sv3] = &mut sv.borrow_mut().0;
+
+        sv1.clone_from(&b.v);
+        *sv1 -= &a.v;
+
+        sv2.clone_from(&b.pos);
+        *sv2 -= &a.pos;
+
+        // s1: (v2-v1) * d
+        sv1.dot_into(sv2, s1);
+        s2.set_zero();
+        // to save performance, it should not be calculated when the object is moving away from each other
+        if s1 > s2 {
+            return
+        }
+
+        // s1: beta(bias factor) / dt
+        s1.clone_from(&*BIAS_FACTOR);
+        *s1 /= dt;
+
+        // s3: |d|
+        sv2.dot_into(&sv2, s3);
+        s3.sqrt_assign();
+
+        // s2: pen (r1 + r2 - |d|)
+        s2.clone_from(&a.radius);
+        *s2 += &b.radius;
+        *s2 -= &s3;
+
+        // s2: pen - slop (overlap_allowed)
+        *s2 -= &*OVERLAP_ALLOWED;
+
+        // s2, s4: max(pen - slop, 0)
+        s4.set_zero();
+        let max_val = s2.max(s4);
+
+        // s1: beta/dt * max(pen - slop, 0)
+        *s1 *= max_val;
+
+        // sv3: n hat (d/|d|)
+        sv3.clone_from(sv2);
+        *sv3 /= s3;
+
+        // s2: (v2-v1)*n
+        sv1.dot_into(sv3, s2);
+
+        // s1: beta/dt * max(pen - slop, 0) - (v2-v1)*n
+        *s1 -= s2;
+
+        // s2: m1m2
+        s2.clone_from(&a.mass);
+        *s2 *= &b.mass;
+
+        // s3: m1+m2
+        s3.clone_from(&a.mass);
+        *s3 += &b.mass;
+
+        // s2: m1m2/(m1+m2)
+        *s2 /= &s3;
+
+        // s1: J
+        *s1 *= &s2;
+
+        // we can now calculate the new velocity
+        // for body a
+
+        // s1, s3: max(J, 0)
+        s3.set_zero();
+        let max_val = s1.max(s3);
+
+        // s2: max(J, 0)/m1
+        s2.clone_from(&max_val);
+        *s2 /= &a.mass;
+
+        // sv1: max(J, 0)/m1 * n
+        sv1.clone_from(sv3);
+        *sv1 *= &s2;
+
+        a.v -= &sv1;
+
+        // now for body b
+        // s2: max(J, 0)/m2
+        s2.clone_from(max_val);
+        *s2 /= &b.mass;
+
+        // sv1: max(J, 0)/m2 * n
+        sv1.clone_from(sv3);
+        *sv1 *= &s2;
+
+        b.v += &sv1;
+    }))
+}
+
 fn integrate_acceleration(body: &mut Body, dt: &Fixed) {
     SCRATCH_VEC.with(|sv| {
-        let [sv1, _] = &mut sv.borrow_mut().0;
+        let [sv1, _, _] = &mut sv.borrow_mut().0;
 
         sv1.clone_from(&body.a);
         *sv1 *= dt;
@@ -170,7 +284,7 @@ fn integrate_acceleration(body: &mut Body, dt: &Fixed) {
 
 fn integrate_velocity(body: &mut Body, dt: &Fixed) {
     SCRATCH_VEC.with(|sv| {
-        let [sv1,_] = &mut sv.borrow_mut().0;
+        let [sv1, _, _] = &mut sv.borrow_mut().0;
 
         sv1.clone_from(&body.v);
         *sv1 *= &dt;
@@ -179,10 +293,11 @@ fn integrate_velocity(body: &mut Body, dt: &Fixed) {
     })
 }
 
-fn accumulate_gravity(body_a: &mut Body, body_b: &mut Body) {
+// returns bool of whether they overlap
+fn accumulate_gravity(body_a: &mut Body, body_b: &mut Body) -> bool {
     SCRATCH_VEC.with(|sv| SCRATCH.with(|s|{
-        let [sv1,sv2] = &mut sv.borrow_mut().0;
-        let [s1, s2, _, _] = &mut s.borrow_mut().0;
+        let [sv1, sv2, _] = &mut sv.borrow_mut().0;
+        let [s1, s2, s3, _] = &mut s.borrow_mut().0;
 
         // sv1: distance a->b (d)
         sv1.clone_from(&body_b.pos);
@@ -199,8 +314,12 @@ fn accumulate_gravity(body_a: &mut Body, body_b: &mut Body) {
 
         // let's say there's just no effect if they're exactly at the same place
         if s1.is_zero() {
-            return;
+            return false;
         }
+
+        s3.clone_from(&body_a.radius);
+        *s3 += &body_b.radius;
+        let is_overlap = s2 < s3;
 
         // sv2: G*m*d/|d|^3
         sv2.clone_from(sv1);
@@ -216,5 +335,7 @@ fn accumulate_gravity(body_a: &mut Body, body_b: &mut Body) {
         *sv2 /= &s1;
 
         body_b.a += &sv2;
+
+        is_overlap
     }))
 }
