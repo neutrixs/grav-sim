@@ -6,6 +6,13 @@
 
 <h2 class="section-title">Bodies <span class="count">{sim.bodies.length}</span></h2>
 
+{#if view.following !== null}
+  <label class="grid-toggle">
+    <input type="checkbox" bind:checked={view.gridFollows} />
+    Grid moves with #{view.following}
+  </label>
+{/if}
+
 {#if sim.bodies.length === 0}
   <p class="empty">None yet</p>
 {:else}
@@ -43,6 +50,22 @@
     margin: 0;
     font-size: 12px;
     color: var(--text-dim);
+  }
+
+  .grid-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: -2px 0 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+  }
+  .grid-toggle input {
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
   }
 
   table {

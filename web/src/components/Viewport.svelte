@@ -54,17 +54,19 @@
       if (sim.running) sim.tick(now)
 
       // Keep the followed body in the centre (zoom still works around it).
+      let origin: [number, number] = [0, 0]
       if (view.following !== null) {
         const b = sim.bodies.find((b) => b.id === view.following)
         if (b) {
           cam.x = b.x
           cam.y = b.y
+          if (view.gridFollows) origin = [b.x, b.y]
         } else view.following = null
       }
 
       const { w, h } = size
       ctx.clearRect(0, 0, w, h)
-      drawGrid(ctx, cam, w, h, colors.grid)
+      drawGrid(ctx, cam, w, h, colors.grid, ...origin)
       drawBodies(ctx, cam, w, h, sim.bodies, colors.body, colors.label)
       if (drafts.draft) drawDraft(ctx, cam, w, h, drafts.draft, drafts.mode !== 'placing', colors.draft, colors.bg, unitOf('velocity'), sim.speed)
       view.gridLabel = formatLength(gridStep(cam.scale) * 10)

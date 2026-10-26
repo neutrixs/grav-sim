@@ -16,12 +16,14 @@ export function gridStep(scale: number): number {
   return 10 ** Math.ceil(Math.log10(MIN_GAP_PX / scale))
 }
 
-export function drawGrid(ctx: CanvasRenderingContext2D, cam: Camera, w: number, h: number, color: string) {
+// The lines pass through (ox, oy): the world origin normally, or the followed
+// body, so the grid moves with it instead of sliding past it.
+export function drawGrid(ctx: CanvasRenderingContext2D, cam: Camera, w: number, h: number, color: string, ox = 0, oy = 0) {
   const step = gridStep(cam.scale)
   const [left, top] = screenToWorld(cam, w, h, 0, 0)
   const [right, bottom] = screenToWorld(cam, w, h, w, h)
-  const x0 = Math.floor(left / step), x1 = Math.ceil(right / step)
-  const y0 = Math.floor(bottom / step), y1 = Math.ceil(top / step)
+  const x0 = Math.floor((left - ox) / step), x1 = Math.ceil((right - ox) / step)
+  const y0 = Math.floor((bottom - oy) / step), y1 = Math.ceil((top - oy) / step)
 
   ctx.strokeStyle = color
 
@@ -45,13 +47,13 @@ export function drawGrid(ctx: CanvasRenderingContext2D, cam: Camera, w: number, 
 
     for (let k = x0; k <= x1; k++) {
       if (!belongs(k)) continue
-      const sx = Math.round((k * step - cam.x) * cam.scale + w / 2) + 0.5
+      const sx = Math.round((ox - cam.x + k * step) * cam.scale + w / 2) + 0.5
       ctx.moveTo(sx, 0)
       ctx.lineTo(sx, h)
     }
     for (let k = y0; k <= y1; k++) {
       if (!belongs(k)) continue
-      const sy = Math.round(h / 2 - (k * step - cam.y) * cam.scale) + 0.5
+      const sy = Math.round(h / 2 - (oy - cam.y + k * step) * cam.scale) + 0.5
       ctx.moveTo(0, sy)
       ctx.lineTo(w, sy)
     }

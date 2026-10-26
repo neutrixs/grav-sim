@@ -11,6 +11,10 @@ class View {
   // Id of the body the camera keeps centred, if any. Panning stops it.
   following: number | null = $state(null)
 
+  // While following: grid lines pass through the followed body (true) or
+  // stay fixed to the world origin (false).
+  gridFollows = $state(true)
+
   toggleFollow(id: number) {
     this.following = this.following === id ? null : id
   }
