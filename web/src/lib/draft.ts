@@ -1,6 +1,7 @@
 import { type Camera, worldToScreen } from './camera'
 import { MIN_RADIUS_PX } from './bodies'
 import type { Unit } from './units'
+import { formatDuration } from './time'
 
 // A body being set up in the UI. Lives only on the JS side until it's added.
 export interface Draft {
@@ -59,19 +60,21 @@ export type DraftMode = 'placing' | 'aiming' | 'editing'
 const GRAB_PX = 10
 const HEAD_PX = 10
 
-// The arrow tip sits where the body would be after 1 s, so its length in
-// metres equals the speed in m/s.
-function screenPoints(cam: Camera, w: number, h: number, d: Draft) {
+// The arrow tip sits where the body would be after `arrowTime` seconds:
+// the playback speed, i.e. one real second of simulation. So the arrow
+// always shows how far the body travels per second you watch, whatever the
+// time scale (at 1 d/s, a 100 km arrow means 100 km per day).
+function screenPoints(cam: Camera, w: number, h: number, d: Draft, arrowTime: number) {
   const [cx, cy] = worldToScreen(cam, w, h, d.x, d.y)
-  const [tx, ty] = worldToScreen(cam, w, h, d.x + d.vx, d.y + d.vy)
+  const [tx, ty] = worldToScreen(cam, w, h, d.x + d.vx * arrowTime, d.y + d.vy * arrowTime)
   const r = Math.max(MIN_RADIUS_PX, d.radius * cam.scale)
   return { cx, cy, tx, ty, r }
 }
 
 // What's under the pointer. The arrow tip wins over the body, so a zero
 // velocity (tip at the centre) can still be pulled out.
-export function hitDraft(cam: Camera, w: number, h: number, d: Draft, sx: number, sy: number) {
-  const p = screenPoints(cam, w, h, d)
+export function hitDraft(cam: Camera, w: number, h: number, d: Draft, arrowTime: number, sx: number, sy: number) {
+  const p = screenPoints(cam, w, h, d, arrowTime)
   if (Math.hypot(sx - p.tx, sy - p.ty) <= GRAB_PX) return 'velocity'
   if (Math.hypot(sx - p.cx, sy - p.cy) <= Math.max(p.r, GRAB_PX)) return 'position'
   return null
@@ -87,8 +90,9 @@ export function drawDraft(
   color: string,
   bg: string,
   speedUnit: Unit,
+  arrowTime: number,
 ) {
-  const { cx, cy, tx, ty, r } = screenPoints(cam, w, h, d)
+  const { cx, cy, tx, ty, r } = screenPoints(cam, w, h, d, arrowTime)
   ctx.save()
   ctx.strokeStyle = color
   ctx.fillStyle = color
@@ -125,7 +129,12 @@ export function drawDraft(
 
       ctx.font = '11px ui-monospace, monospace'
       ctx.textBaseline = 'middle'
-      ctx.fillText(`${formatSpeed(Math.hypot(d.vx, d.vy) / speedUnit.factor)} ${speedUnit.label}`, tx + ux * 10 + 4, ty + uy * 10)
+      const lx = tx + ux * 10 + 4, ly = ty + uy * 10
+      ctx.fillText(`${formatSpeed(Math.hypot(d.vx, d.vy) / speedUnit.factor)} ${speedUnit.label}`, lx, ly)
+      // what the arrow's length stands for
+      ctx.globalAlpha = 0.6
+      ctx.fillText(`arrow = ${formatDuration(arrowTime)}`, lx, ly + 14)
+      ctx.globalAlpha = 1
     }
 
     // grab handle at the tip

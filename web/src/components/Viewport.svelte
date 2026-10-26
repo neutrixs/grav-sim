@@ -34,7 +34,7 @@
       bodyAt: (sx, sy) => bodyAt(cam, size.w, size.h, sim.bodies, sx, sy)?.id ?? null,
       toggle: (id) => view.toggleFollow(id),
       stop: () => (view.following = null),
-    })
+    }, () => sim.speed)
 
     // Canvas can't use CSS variables directly, so read the tokens once.
     const css = getComputedStyle(canvas)
@@ -66,7 +66,7 @@
       ctx.clearRect(0, 0, w, h)
       drawGrid(ctx, cam, w, h, colors.grid)
       drawBodies(ctx, cam, w, h, sim.bodies, colors.body, colors.label)
-      if (drafts.draft) drawDraft(ctx, cam, w, h, drafts.draft, drafts.mode !== 'placing', colors.draft, colors.bg, unitOf('velocity'))
+      if (drafts.draft) drawDraft(ctx, cam, w, h, drafts.draft, drafts.mode !== 'placing', colors.draft, colors.bg, unitOf('velocity'), sim.speed)
       view.gridLabel = formatLength(gridStep(cam.scale) * 10)
 
       raf = requestAnimationFrame(frame)

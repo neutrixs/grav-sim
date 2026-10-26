@@ -12,7 +12,17 @@ export interface Size {
 // Values set with the cursor are rounded to a tenth of the finest visible
 // grid step, so the fields show e.g. 12.3 instead of 12.30481920394.
 function snap(cam: Camera, v: number): number {
-  const q = gridStep(cam.scale) / 10
+  return roundTo(v, gridStep(cam.scale) / 10)
+}
+
+// Velocities set with the arrow: the arrow is `arrowTime` seconds of travel,
+// so a tenth of a grid step of arrow is that much less velocity. Rounded to a
+// power of ten so the fields stay readable (1.2 km/s, not 1.157407 km/s).
+function snapVel(cam: Camera, v: number, arrowTime: number): number {
+  return roundTo(v, 10 ** Math.floor(Math.log10(gridStep(cam.scale) / 10 / arrowTime)))
+}
+
+function roundTo(v: number, q: number): number {
   return Number((Math.round(v / q) * q).toPrecision(12))
 }
 
@@ -27,13 +37,16 @@ export interface Follow {
 const CLICK_SLOP_PX = 4
 
 // Wheel zoom, drag-to-pan, clicking a body to follow it, and placing /
-// dragging the draft body. Returns a function that removes all listeners.
+// dragging the draft body. `arrowTime` gives the current length of time the
+// velocity arrow stands for (see draft.ts). Returns a function that removes
+// all listeners.
 export function attachInteraction(
   canvas: HTMLCanvasElement,
   size: Size,
   cam: Camera,
   drafts: DraftState,
   follow: Follow,
+  arrowTime: () => number,
 ) {
   // What the current pointer drag is doing.
   let drag: 'pan' | 'position' | 'velocity' | null = null
@@ -41,7 +54,7 @@ export function attachInteraction(
   let panMoved = 0 // px dragged so far in the current pan
 
   const toWorld = (e: PointerEvent | WheelEvent) => screenToWorld(cam, size.w, size.h, e.offsetX, e.offsetY)
-  const hit = (d: Draft, e: PointerEvent) => hitDraft(cam, size.w, size.h, d, e.offsetX, e.offsetY)
+  const hit = (d: Draft, e: PointerEvent) => hitDraft(cam, size.w, size.h, d, arrowTime(), e.offsetX, e.offsetY)
 
   const setPos = (d: Draft, wx: number, wy: number) => {
     d.x = snap(cam, wx + grabDx)
@@ -51,8 +64,9 @@ export function attachInteraction(
   // That leaves them a hair off the exact polar form of (vx, vy), which is
   // below what the mouse can place anyway. Typed values never go through here.
   const setVel = (d: Draft, wx: number, wy: number) => {
-    setVelocityXY(d, snap(cam, wx - d.x), snap(cam, wy - d.y))
-    d.speed = snap(cam, d.speed)
+    const t = arrowTime()
+    setVelocityXY(d, snapVel(cam, (wx - d.x) / t, t), snapVel(cam, (wy - d.y) / t, t))
+    d.speed = snapVel(cam, d.speed, t)
     d.angle = Number((Math.round(d.angle * 10) / 10).toFixed(1))
   }
 
