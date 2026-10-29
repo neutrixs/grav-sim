@@ -203,6 +203,7 @@ impl Fixed {
             Ok(())
         })
     }
+    // TODO: check for infinity?
     pub fn from_f64(v: f64) -> Fixed {
         Fixed(BigInt::from_f64(v * 2f64.powi(FRAC_BITS as i32)).unwrap())
     }
@@ -297,6 +298,8 @@ impl Fixed {
     pub fn negate_assign(&mut self) {
         self.0 = -std::mem::take(&mut self.0);
     }
+
+    // TODO: add gt0, lt0, eq0
 }
 
 // u / v = q   (u gets clobbered, ends up holding the remainder, shifted)
