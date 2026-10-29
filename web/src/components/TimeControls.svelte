@@ -6,6 +6,7 @@
   const modes: { id: StepMode; label: string }[] = [
     { id: 'fixed', label: 'Fixed' },
     { id: 'dynamic', label: 'Dynamic' },
+    { id: 'auto', label: 'Auto' },
   ]
 
   // Physics steps per real second at the current settings.
@@ -48,7 +49,7 @@
 
     {#if sim.stepMode === 'fixed'}
       <Field label="dt" units="dt" bind:value={() => sim.fixedDt, (v) => sim.setFixedDt(v)} />
-    {:else}
+    {:else if sim.stepMode === 'dynamic'}
       <Field label="dt =" unit="× speed" bind:value={() => sim.dtFactor, (v) => sim.setDtFactor(v)} />
     {/if}
 
@@ -111,7 +112,7 @@
     color: var(--text-dim);
   }
 
-  /* Two-option toggle */
+  /* Step mode toggle */
   .segmented {
     display: flex;
     padding: 2px;

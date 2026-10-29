@@ -5,7 +5,9 @@ import type { Draft } from '../lib/draft'
 // fixed:   dt is set directly
 // dynamic: dt = dtFactor × speed, so faster playback takes bigger steps
 //          (each step always covers dtFactor seconds of *real* time)
-export type StepMode = 'fixed' | 'dynamic'
+// auto:    like dynamic, but the factor follows the measured cost of a step,
+//          so the physics uses about AUTO_LOAD of real time
+export type StepMode = 'fixed' | 'dynamic' | 'auto'
 
 const valid = (v: number) => Number.isFinite(v) && v > 0
 
@@ -16,6 +18,15 @@ const MAX_FRAME_S = 0.05
 const STEP_BUDGET_MS = 10
 // How often the slowdown readout is recomputed.
 const SLOWDOWN_WINDOW_S = 0.5
+// Auto mode: fraction of real time spent stepping. Kept below the frame
+// budget (STEP_BUDGET_MS of a ~16 ms frame) so steps aren't dropped.
+const AUTO_LOAD = 0.4
+
+type DtSettings = Pick<Sim, 'speed' | 'stepMode' | 'fixedDt' | 'dtFactor' | 'autoFactor'>
+function dtOf(s: DtSettings): number {
+  if (s.stepMode === 'fixed') return s.fixedDt
+  return (s.stepMode === 'auto' ? s.autoFactor : s.dtFactor) * s.speed
+}
 
 // Owns the Rust Sim and the JS-side view of its data.
 class Sim {
@@ -30,10 +41,11 @@ class Sim {
   stepMode: StepMode = $state('dynamic')
   fixedDt = $state(0.001) // s
   dtFactor = $state(0.001) // s of real time per step
+  autoFactor = $state(0.001) // same, but picked by auto mode
 
   // The step size currently handed to Rust (s).
   get dt(): number {
-    return this.stepMode === 'fixed' ? this.fixedDt : this.dtFactor * this.speed
+    return dtOf(this)
   }
 
   #lastNow: number | null = null
@@ -60,7 +72,7 @@ class Sim {
   // A rejected change is dropped, and the field snaps back to the current value.
   #commit(change: Partial<Pick<Sim, 'speed' | 'stepMode' | 'fixedDt' | 'dtFactor'>>) {
     const next = { speed: this.speed, stepMode: this.stepMode, fixedDt: this.fixedDt, dtFactor: this.dtFactor, ...change }
-    const dt = next.stepMode === 'fixed' ? next.fixedDt : next.dtFactor * next.speed
+    const dt = dtOf({ ...next, autoFactor: this.autoFactor })
     try {
       this.#manager().dt = dt
     } catch {
@@ -130,7 +142,21 @@ class Sim {
       this.sync()
     }
 
+    if (this.stepMode === 'auto' && this.#msPerStep > 0) this.#autoAdjust()
+
     this.#measureSlowdown(real, wanted, dropped)
+  }
+
+  // Each step should cost (dt / speed) × AUTO_LOAD of real time, so
+  // dt / speed = cost of a step / AUTO_LOAD. #msPerStep is already smoothed.
+  #autoAdjust() {
+    const factor = this.#msPerStep / 1000 / AUTO_LOAD
+    try {
+      this.#manager().dt = factor * this.speed
+    } catch {
+      return // too small for fixed-point: keep the current one
+    }
+    this.autoFactor = factor
   }
 
   // slowdown = wanted / actually simulated, over a short window so a single
