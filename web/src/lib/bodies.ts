@@ -1,4 +1,4 @@
-import type { SimulationManager } from '../../pkg'
+import type { Sim } from '../../pkg'
 import { type Camera, worldToScreen } from './camera'
 
 // Plain-JS copy of a body, so we don't hold on to Rust handles between frames.
@@ -12,10 +12,10 @@ export interface BodyData {
   radius: number
 }
 
-// Pull the current state of every body out of Rust. Each BodyRetrieved is a
+// Pull the current state of every body out of Rust. Each Body is a
 // handle to memory on the Rust side, so it is copied and freed right away.
-export function snapshot(mng: SimulationManager): BodyData[] {
-  return mng.retrieve_all().map((b) => {
+export function snapshot(rs: Sim): BodyData[] {
+  return rs.retrieve().map((b) => {
     const d = { id: b.id, x: b.pos_x, y: b.pos_y, vx: b.v_x, vy: b.v_y, mass: b.mass, radius: b.radius }
     b.free()
     return d

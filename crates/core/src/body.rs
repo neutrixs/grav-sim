@@ -1,4 +1,3 @@
-use crate::BodyRetrieved;
 use crate::vec::Vector2D;
 use crate::fixed::Fixed;
 use crate::FixedScratch;
@@ -15,13 +14,13 @@ static G: LazyLock<Fixed> = LazyLock::new(|| {
 });
 
 pub struct Body {
-    pub(crate) pos: Vector2D,
-    pub(crate) v: Vector2D,
-    pub(crate) a: Vector2D,
-    pub(crate) mass: Fixed,
-    pub(crate) radius: Fixed,
-    pub(crate) id: usize,
-    pub(crate) mu: Fixed,
+    pub pos: Vector2D,
+    pub v: Vector2D,
+    pub a: Vector2D,
+    pub mass: Fixed,
+    pub radius: Fixed,
+    pub id: usize,
+    pub mu: Fixed,
 }
 
 thread_local! {
@@ -30,44 +29,29 @@ thread_local! {
 
 impl Body {
     pub fn new(
-        pos_x: f64,
-        pos_y: f64,
-        v_x: f64,
-        v_y: f64,
-        mass: f64,
-        radius: f64,
+        pos: Vector2D,
+        v: Vector2D,
+        mass: Fixed,
+        radius: Fixed,
         id: usize
     ) -> Result<Body, SimError> {
-        if !(mass.is_finite() && mass > 0.0) {
-            return Err(SimError::InvalidMass(mass))
+        let zero = Fixed::zero();
+
+        if mass <= zero {
+            return Err(SimError::InvalidMass(mass.to_f64()))
         }
 
-        if !(radius.is_finite() && radius > 0.0) {
-            return Err(SimError::InvalidRadius(radius))
+        if radius <= zero {
+            return Err(SimError::InvalidRadius(radius.to_f64()))
         }
 
-        if !(pos_x.is_finite() && pos_y.is_finite()) {
-            return Err(SimError::InvalidPosition(pos_x, pos_y))
-        }
-
-        if !(v_x.is_finite() && v_y.is_finite()) {
-            return Err(SimError::InvalidVelocity(v_x, v_y))
-        }
-
-        let mass = Fixed::from_f64(mass);
         let mu = &mass * &*G;
 
         Ok(Body {
-            pos: Vector2D {
-                x: Fixed::from_f64(pos_x),
-                y: Fixed::from_f64(pos_y),
-            },
-            v: Vector2D {
-                x: Fixed::from_f64(v_x),
-                y: Fixed::from_f64(v_y),
-            },
+            pos,
+            v,
             a: Vector2D::zero(),
-            radius: Fixed::from_f64(radius),
+            radius,
             mass,
             id,
             mu,
@@ -102,19 +86,5 @@ impl Body {
                 s2 < s1
             }
        })
-    }
-
-    pub fn retrieve_data(&self) -> BodyRetrieved {
-        BodyRetrieved {
-            id: self.id,
-            pos_x: self.pos.x.to_f64(),
-            pos_y: self.pos.y.to_f64(),
-            v_x: self.v.x.to_f64(),
-            v_y: self.v.y.to_f64(),
-            a_x: self.a.x.to_f64(),
-            a_y: self.a.y.to_f64(),
-            radius: self.radius.to_f64(),
-            mass: self.mass.to_f64(),
-        }
     }
 }

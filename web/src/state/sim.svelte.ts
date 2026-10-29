@@ -1,4 +1,4 @@
-import { SimulationManager } from '../../pkg'
+import { Sim as RustSim } from '../../pkg'
 import { type BodyData, snapshot } from '../lib/bodies'
 import type { Draft } from '../lib/draft'
 
@@ -17,7 +17,7 @@ const STEP_BUDGET_MS = 10
 // How often the slowdown readout is recomputed.
 const SLOWDOWN_WINDOW_S = 0.5
 
-// Owns the Rust SimulationManager and the JS-side view of its data.
+// Owns the Rust Sim and the JS-side view of its data.
 class Sim {
   // Latest body data pulled from Rust. Only refreshed while time runs (and on
   // first load / after adding a body); the renderer just draws whatever is here.
@@ -37,7 +37,7 @@ class Sim {
   }
 
   #lastNow: number | null = null
-  #mng: SimulationManager | null = null
+  #mng: RustSim | null = null
 
   // Simulated time requested but smaller than one step, carried to the next
   // frame. Kept in seconds (not steps) so it stays right when dt changes.
@@ -51,18 +51,18 @@ class Sim {
 
   // Created on first use rather than at import: the WASM module is only
   // ready after `await init()` in main.ts.
-  #manager(): SimulationManager {
-    return (this.#mng ??= new SimulationManager(this.dt))
+  #manager(): RustSim {
+    return (this.#mng ??= new RustSim(this.dt))
   }
 
   // Apply a settings change only if Rust accepts the dt it results in
-  // (set_dt throws on NaN/∞, ≤ 0, or a step too small for fixed-point).
+  // (setting dt throws on NaN/∞, ≤ 0, or a step too small for fixed-point).
   // A rejected change is dropped, and the field snaps back to the current value.
   #commit(change: Partial<Pick<Sim, 'speed' | 'stepMode' | 'fixedDt' | 'dtFactor'>>) {
     const next = { speed: this.speed, stepMode: this.stepMode, fixedDt: this.fixedDt, dtFactor: this.dtFactor, ...change }
     const dt = next.stepMode === 'fixed' ? next.fixedDt : next.dtFactor * next.speed
     try {
-      this.#manager().set_dt(dt)
+      this.#manager().dt = dt
     } catch {
       return
     }
@@ -122,7 +122,9 @@ class Sim {
 
     if (n > 0) {
       const t0 = performance.now()
-      this.time = this.#manager().step(n)
+      const rs = this.#manager()
+      rs.step(n)
+      this.time = rs.time
       const ms = (performance.now() - t0) / n
       this.#msPerStep = this.#msPerStep > 0 ? this.#msPerStep * 0.8 + ms * 0.2 : ms
       this.sync()
