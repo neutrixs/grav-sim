@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "wasm": "wasm-pack build .. --target web --out-dir web/pkg",
+    "wasm": "wasm-pack build ../crates/wasm --target web --out-dir ../../web/pkg",
     "start": "npm run wasm && vite",
     "dev": "vite",
     "build": "npm run wasm && vite build",
