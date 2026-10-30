@@ -112,7 +112,7 @@ impl SimulationManager {
     }
 
     pub fn step(&mut self, n: u32) -> Result<&Fixed, SimError> {
-        let mut overlaps: Vec<(usize, usize)> = Vec::new();
+        let mut overlaps: Vec<(usize, usize, Fixed)> = Vec::new();
 
         for _ in 0..n {
             overlaps.clear();
@@ -125,6 +125,8 @@ impl SimulationManager {
             for i in 0..self.bodies.len() {
                 let (left, right) = self.bodies.split_at_mut(i + 1);
                 let obj1 = &mut left[i];
+                // reused for every pair; only moved out (and replaced) when it overlaps
+                let mut dist = Fixed::zero();
 
                 for (j, obj2)in right.iter_mut().enumerate() {
                     if accumulate_gravity(
@@ -136,8 +138,9 @@ impl SimulationManager {
                         &obj2.mu,
                         &mut obj1.a,
                         &mut obj2.a,
+                        &mut dist,
                     ) {
-                        overlaps.push((i, i + 1 + j))
+                        overlaps.push((i, i + 1 + j, std::mem::replace(&mut dist, Fixed::zero())))
                     }
                 }
             }
@@ -147,12 +150,12 @@ impl SimulationManager {
                 integrate_acceleration(body, &self.dt);
             }
 
-            for (id_1, id_2) in overlaps.iter() {
+            for (id_1, id_2, dist) in overlaps.iter() {
                 let (first, second) = self.bodies.split_at_mut(*id_2);
                 let a = &mut first[*id_1];
                 let b = &mut second[0];
 
-                fix_collision(a, b, &self.dt);
+                fix_collision(a, b, dist, &self.dt);
             }
 
             // at this point, every body's gravitational interaction with each other has been integrated
@@ -169,7 +172,7 @@ impl SimulationManager {
     }
 }
 
-fn fix_collision(a: &mut Body, b: &mut Body, dt: &Fixed) {
+fn fix_collision(a: &mut Body, b: &mut Body, distance: &Fixed, dt: &Fixed) {
     SCRATCH_VEC.with(|sv| SCRATCH.with(|s| {
         let [s1, s2, s3, s4] = &mut s.borrow_mut().0;
         let [sv1, sv2, sv3] = &mut sv.borrow_mut().0;
@@ -192,14 +195,10 @@ fn fix_collision(a: &mut Body, b: &mut Body, dt: &Fixed) {
         s1.clone_from(&*BIAS_FACTOR);
         *s1 /= dt;
 
-        // s3: |d|
-        sv2.dot_into(&sv2, s3);
-        s3.sqrt_assign();
-
         // s2: pen (r1 + r2 - |d|)
         s2.clone_from(&a.radius);
         *s2 += &b.radius;
-        *s2 -= &s3;
+        *s2 -= distance;
 
         // s2: pen - slop (overlap_allowed)
         *s2 -= &*OVERLAP_ALLOWED;
@@ -213,7 +212,7 @@ fn fix_collision(a: &mut Body, b: &mut Body, dt: &Fixed) {
 
         // sv3: n hat (d/|d|)
         sv3.clone_from(sv2);
-        *sv3 /= s3;
+        *sv3 /= distance;
 
         // s2: (v2-v1)*n
         sv1.dot_into(sv3, s2);
@@ -297,6 +296,7 @@ fn accumulate_gravity(
     mu_b: &Fixed,
     target_a: &mut Vector2D,
     target_b: &mut Vector2D,
+    target_d: &mut Fixed,
 ) -> bool {
     SCRATCH_VEC.with(|sv| SCRATCH.with(|s|{
         let [sv1, sv2, _] = &mut sv.borrow_mut().0;
@@ -311,6 +311,7 @@ fn accumulate_gravity(
         // s2: |d|
         s2.clone_from(s1);
         s2.sqrt_assign();
+        target_d.clone_from(s2);
 
         // s1: |d|^2 * |d| = |d|^3
         *s1 *= s2;

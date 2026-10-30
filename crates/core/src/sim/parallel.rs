@@ -7,13 +7,15 @@ use crate::vec::Vector2D;
 impl SimulationManager {
     pub fn step_parallel(&mut self, n: u32) -> Result<&Fixed, SimError> {
         for _ in 0..n {
-            let overlaps = Mutex::new(Vec::<(usize, usize)>::new());
+            let overlaps = Mutex::new(Vec::<(usize, usize, Fixed)>::new());
             let accumulator = Mutex::new(vec![Vector2D::zero(); self.bodies.len()]);
 
             (0..self.bodies.len()).into_par_iter().for_each(|i| {
                 // starts from i til the end
                 let mut local_accumulator = vec![Vector2D::zero(); self.bodies.len() - i];
-                let mut local_overlaps: Vec<(usize, usize)> = Vec::new();
+                let mut local_overlaps: Vec<(usize, usize, Fixed)> = Vec::new();
+                // reused for every pair; only moved out (and replaced) when it overlaps
+                let mut dist = Fixed::zero();
                 let (left, right) = self.bodies.split_at(i + 1);
                 let obj1 = &left[i];
 
@@ -29,8 +31,9 @@ impl SimulationManager {
                         &obj2.mu,
                         &mut left[0],
                         &mut right[0],
+                        &mut dist,
                     ) {
-                        local_overlaps.push((i, i + 1 + j));
+                        local_overlaps.push((i, i + 1 + j, std::mem::replace(&mut dist, Fixed::zero())));
                     }
                 }
 
@@ -47,7 +50,7 @@ impl SimulationManager {
             });
 
             let mut overlaps = overlaps.into_inner().unwrap();
-            overlaps.sort_unstable();
+            overlaps.sort_unstable_by_key(|o| (o.0, o.1));
             for (i, val) in accumulator.into_inner().unwrap().iter().enumerate() {
                 self.bodies[i].a.clone_from(val);
             }
@@ -58,12 +61,12 @@ impl SimulationManager {
 
             // when fixing collision, order matters for consistency
             // therefore as for now, it cannot be parallelized
-            for (id_1, id_2) in overlaps.iter() {
+            for (id_1, id_2, dist) in overlaps.iter() {
                 let (first, second) = self.bodies.split_at_mut(*id_2);
                 let a = &mut first[*id_1];
                 let b = &mut second[0];
 
-                fix_collision(a, b, &self.dt);
+                fix_collision(a, b, dist, &self.dt);
             }
 
             self.bodies.par_iter_mut().for_each(|body| {
