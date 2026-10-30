@@ -7,6 +7,9 @@ use crate::fixed::Fixed;
 use crate::FixedScratch;
 use crate::vec::Vector2D;
 
+#[cfg(feature = "parallel")]
+mod parallel;
+
 static BIAS_FACTOR: LazyLock<Fixed> = LazyLock::new(|| {
    Fixed::from_f64(0.125)
 });
@@ -124,7 +127,16 @@ impl SimulationManager {
                 let obj1 = &mut left[i];
 
                 for (j, obj2)in right.iter_mut().enumerate() {
-                    if accumulate_gravity(obj1, obj2) {
+                    if accumulate_gravity(
+                        &obj1.pos,
+                        &obj2.pos,
+                        &obj1.radius,
+                        &obj2.radius,
+                        &obj1.mu,
+                        &obj2.mu,
+                        &mut obj1.a,
+                        &mut obj2.a,
+                    ) {
                         overlaps.push((i, i + 1 + j))
                     }
                 }
@@ -276,14 +288,23 @@ fn integrate_velocity(body: &mut Body, dt: &Fixed) {
 }
 
 // returns bool of whether they overlap
-fn accumulate_gravity(body_a: &mut Body, body_b: &mut Body) -> bool {
+fn accumulate_gravity(
+    pos_a: &Vector2D,
+    pos_b: &Vector2D,
+    radius_a: &Fixed,
+    radius_b: &Fixed,
+    mu_a: &Fixed,
+    mu_b: &Fixed,
+    target_a: &mut Vector2D,
+    target_b: &mut Vector2D,
+) -> bool {
     SCRATCH_VEC.with(|sv| SCRATCH.with(|s|{
         let [sv1, sv2, _] = &mut sv.borrow_mut().0;
         let [s1, s2, s3, _] = &mut s.borrow_mut().0;
 
         // sv1: distance a->b (d)
-        sv1.clone_from(&body_b.pos);
-        *sv1 -= &body_a.pos;
+        sv1.clone_from(pos_b);
+        *sv1 -= pos_a;
 
         // s1: |d|^2
         sv1.dot_into(&sv1, s1);
@@ -299,24 +320,24 @@ fn accumulate_gravity(body_a: &mut Body, body_b: &mut Body) -> bool {
             return false;
         }
 
-        s3.clone_from(&body_a.radius);
-        *s3 += &body_b.radius;
+        s3.clone_from(&radius_a);
+        *s3 += radius_b;
         let is_overlap = s2 < s3;
 
         // sv2: G*m*d/|d|^3
         sv2.clone_from(sv1);
-        *sv2 *= &body_b.mu;
+        *sv2 *= mu_b;
         *sv2 /= &s1;
 
-        body_a.a += &sv2;
+        *target_a += &sv2;
 
         // body A done, now do the same for body B
         sv1.negate_assign();
         sv2.clone_from(sv1);
-        *sv2 *= &body_a.mu;
+        *sv2 *= mu_a;
         *sv2 /= &s1;
 
-        body_b.a += &sv2;
+        *target_b += &sv2;
 
         is_overlap
     }))
