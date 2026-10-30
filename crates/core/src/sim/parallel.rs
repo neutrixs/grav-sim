@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 use std::sync::Mutex;
 use crate::fixed::Fixed;
-use super::{accumulate_gravity, SimError, SimulationManager};
+use super::{accumulate_gravity, SimError, SimulationManager, integrate_acceleration, fix_collision, integrate_velocity};
 use crate::vec::Vector2D;
 
 impl SimulationManager {
@@ -48,9 +48,27 @@ impl SimulationManager {
 
             let mut overlaps = overlaps.into_inner().unwrap();
             overlaps.sort_unstable();
-            for (i, val) in accumulator.lock().unwrap().iter().enumerate() {
+            for (i, val) in accumulator.into_inner().unwrap().iter().enumerate() {
                 self.bodies[i].a.clone_from(val);
             }
+
+            self.bodies.par_iter_mut().for_each(|body| {
+                integrate_acceleration(body, &self.dt);
+            });
+
+            // when fixing collision, order matters for consistency
+            // therefore as for now, it cannot be parallelized
+            for (id_1, id_2) in overlaps.iter() {
+                let (first, second) = self.bodies.split_at_mut(*id_2);
+                let a = &mut first[*id_1];
+                let b = &mut second[0];
+
+                fix_collision(a, b, &self.dt);
+            }
+
+            self.bodies.par_iter_mut().for_each(|body| {
+                integrate_velocity(body, &self.dt);
+            });
         }
 
         self.elapsed += &(&self.dt * &Fixed::from_f64(f64::from(n)));
