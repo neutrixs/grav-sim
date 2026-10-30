@@ -56,6 +56,24 @@ pub struct SimulationManager {
     next_id: usize,
     dt: Fixed,
     elapsed: Fixed,
+    // w = m2/(m1+m2) for every pair, see fix_collision for the math.
+    // Indexed with pair_index(i, j). Masses never change, so each value is
+    // computed once, when the second body of the pair is added.
+    mass_ratio: Vec<Fixed>,
+}
+
+// Index of pair (i, j), i < j, in a per-pair table.
+// Pairs are grouped by their larger index j:
+//
+//   j=1: (0,1)
+//   j=2: (0,2) (1,2)
+//   j=3: (0,3) (1,3) (2,3)
+//
+// Before group j there are 1 + 2 + ... + (j-1) = j(j-1)/2 pairs, and i is the
+// position inside the group. Grouping by j (not i) keeps the table append-only:
+// adding body j only adds group j, at the end.
+fn pair_index(i: usize, j: usize) -> usize {
+    j * (j - 1) / 2 + i
 }
 
 impl SimulationManager {
@@ -65,7 +83,13 @@ impl SimulationManager {
             return Err(SimError::InvalidDt(dt.to_f64()));
         }
 
-        Ok(SimulationManager { bodies: Vec::new(), next_id: 0, dt, elapsed: Fixed::zero() })
+        Ok(SimulationManager {
+            bodies: Vec::new(),
+            next_id: 0,
+            dt,
+            elapsed: Fixed::zero(),
+            mass_ratio: Vec::new(),
+        })
     }
 
     pub fn add_body(
@@ -81,6 +105,15 @@ impl SimulationManager {
 
         if overlap {
             return Err(SimError::Overlap);
+        }
+
+        // group j of mass_ratio: the new body is j (the larger index, m2),
+        // every existing body is i (m1)
+        for other in self.bodies.iter() {
+            // w = m2/(m1+m2)
+            let mut w = body.mass.clone();
+            w /= &(&other.mass + &body.mass);
+            self.mass_ratio.push(w);
         }
 
         self.next_id += 1;
@@ -151,11 +184,12 @@ impl SimulationManager {
             }
 
             for (id_1, id_2, dist) in overlaps.iter() {
+                let w = &self.mass_ratio[pair_index(*id_1, *id_2)];
                 let (first, second) = self.bodies.split_at_mut(*id_2);
                 let a = &mut first[*id_1];
                 let b = &mut second[0];
 
-                fix_collision(a, b, dist, &self.dt);
+                fix_collision(a, b, dist, w, &self.dt);
             }
 
             // at this point, every body's gravitational interaction with each other has been integrated
@@ -172,7 +206,28 @@ impl SimulationManager {
     }
 }
 
-fn fix_collision(a: &mut Body, b: &mut Body, distance: &Fixed, dt: &Fixed) {
+// Collision impulse, applied along the normal n = d/|d| (d points from a to b):
+//
+//   k = β/dt · max(pen - slop, 0) - (v2-v1)·n
+//   J = k · m1m2/(m1+m2)            (m1m2/(m1+m2) is the "reduced mass")
+//   a.v -= J/m1 · n
+//   b.v += J/m2 · n
+//
+// J itself is never needed, only J/m1 and J/m2, and the masses cancel:
+//
+//   J/m1 = k · m1m2/(m1+m2) / m1 = k · m2/(m1+m2) = k · w
+//   J/m2 = k · m1m2/(m1+m2) / m2 = k · m1/(m1+m2) = k · (1 - w)
+//
+//   where w = m2/(m1+m2) (cached per pair), and 1 - w = m1/(m1+m2) because
+//   m1/(m1+m2) + m2/(m1+m2) = (m1+m2)/(m1+m2) = 1
+//
+// So no division by mass is left here. k·(1 - w) is computed as k - k·w: then
+// the two parts add up to exactly k even after truncation, so the momentum given
+// to b is exactly the momentum taken from a.
+//
+// Clamping: the reduced mass is always > 0, so J and k have the same sign and
+// max(J, 0) = 0 exactly when max(k, 0) = 0. The clamp is done on k.
+fn fix_collision(a: &mut Body, b: &mut Body, distance: &Fixed, w: &Fixed, dt: &Fixed) {
     SCRATCH_VEC.with(|sv| SCRATCH.with(|s| {
         let [s1, s2, s3, s4] = &mut s.borrow_mut().0;
         let [sv1, sv2, sv3] = &mut sv.borrow_mut().0;
@@ -217,48 +272,34 @@ fn fix_collision(a: &mut Body, b: &mut Body, distance: &Fixed, dt: &Fixed) {
         // s2: (v2-v1)*n
         sv1.dot_into(sv3, s2);
 
-        // s1: beta/dt * max(pen - slop, 0) - (v2-v1)*n
+        // s1: k = beta/dt * max(pen - slop, 0) - (v2-v1)*n
         *s1 -= s2;
 
-        // s2: m1m2
-        s2.clone_from(&a.mass);
-        *s2 *= &b.mass;
-
-        // s3: m1+m2
-        s3.clone_from(&a.mass);
-        *s3 += &b.mass;
-
-        // s2: m1m2/(m1+m2)
-        *s2 /= &s3;
-
-        // s1: J
-        *s1 *= &s2;
+        // s1, s3: max(k, 0)
+        s3.set_zero();
+        let max_val = s1.max(s3);
 
         // we can now calculate the new velocity
         // for body a
 
-        // s1, s3: max(J, 0)
-        s3.set_zero();
-        let max_val = s1.max(s3);
-
-        // s2: max(J, 0)/m1
+        // s2: J/m1 = max(k, 0) * w
         s2.clone_from(&max_val);
-        *s2 /= &a.mass;
+        *s2 *= w;
 
-        // sv1: max(J, 0)/m1 * n
+        // sv1: J/m1 * n
         sv1.clone_from(sv3);
         *sv1 *= &s2;
 
         a.v -= &sv1;
 
         // now for body b
-        // s2: max(J, 0)/m2
-        s2.clone_from(max_val);
-        *s2 /= &b.mass;
+        // s4: J/m2 = max(k, 0) * (1 - w) = max(k, 0) - J/m1
+        s4.clone_from(max_val);
+        *s4 -= &s2;
 
-        // sv1: max(J, 0)/m2 * n
+        // sv1: J/m2 * n
         sv1.clone_from(sv3);
-        *sv1 *= &s2;
+        *sv1 *= &s4;
 
         b.v += &sv1;
     }))

@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 use std::sync::Mutex;
 use crate::fixed::Fixed;
-use super::{accumulate_gravity, SimError, SimulationManager, integrate_acceleration, fix_collision, integrate_velocity};
+use super::{accumulate_gravity, SimError, SimulationManager, integrate_acceleration, fix_collision, integrate_velocity, pair_index};
 use crate::vec::Vector2D;
 
 impl SimulationManager {
@@ -62,11 +62,12 @@ impl SimulationManager {
             // when fixing collision, order matters for consistency
             // therefore as for now, it cannot be parallelized
             for (id_1, id_2, dist) in overlaps.iter() {
+                let w = &self.mass_ratio[pair_index(*id_1, *id_2)];
                 let (first, second) = self.bodies.split_at_mut(*id_2);
                 let a = &mut first[*id_1];
                 let b = &mut second[0];
 
-                fix_collision(a, b, dist, &self.dt);
+                fix_collision(a, b, dist, w, &self.dt);
             }
 
             self.bodies.par_iter_mut().for_each(|body| {
