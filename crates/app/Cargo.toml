@@ -1,0 +1,13 @@
+[package]
+name = "grav-app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+grav-core = { path = "../core", features = ["parallel"] }
+eframe = "0.37"
+
+# the executable is called grav-sim (target/release/grav-sim)
+[[bin]]
+name = "grav-sim"
+path = "src/main.rs"

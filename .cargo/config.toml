@@ -1,0 +1,5 @@
+[alias]
+# cargo app       → build (optimised) and run the desktop app
+# cargo build-app → just build it, to target/release/grav-sim
+app = "run --release -p grav-app"
+build-app = "build --release -p grav-app"
