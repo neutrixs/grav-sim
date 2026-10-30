@@ -300,7 +300,7 @@ fn accumulate_gravity(
 ) -> bool {
     SCRATCH_VEC.with(|sv| SCRATCH.with(|s|{
         let [sv1, sv2, _] = &mut sv.borrow_mut().0;
-        let [s1, s2, s3, _] = &mut s.borrow_mut().0;
+        let [s1, s2, s3, s4] = &mut s.borrow_mut().0;
 
         // sv1: distance a->b (d)
         sv1.clone_from(pos_b);
@@ -324,20 +324,24 @@ fn accumulate_gravity(
         *s3 += radius_b;
         let is_overlap = s2 < s3;
 
-        // sv2: G*m*d/|d|^3
+        // s4: G*m/|d|^3 (scalar: 1 division instead of 1 per component)
+        s4.clone_from(mu_b);
+        *s4 /= &s1;
+
+        // sv2: G*m/|d|^3 * d
         sv2.clone_from(sv1);
-        *sv2 *= mu_b;
-        *sv2 /= &s1;
+        *sv2 *= &s4;
 
         *target_a += &sv2;
 
-        // body A done, now do the same for body B
-        sv1.negate_assign();
-        sv2.clone_from(sv1);
-        *sv2 *= mu_a;
-        *sv2 /= &s1;
+        // body A done, now do the same for body B (d points the other way)
+        s4.clone_from(mu_a);
+        *s4 /= &s1;
 
-        *target_b += &sv2;
+        sv2.clone_from(sv1);
+        *sv2 *= &s4;
+
+        *target_b -= &sv2;
 
         is_overlap
     }))
