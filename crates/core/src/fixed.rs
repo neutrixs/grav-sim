@@ -262,7 +262,9 @@ impl Fixed {
             let s = &mut *s.borrow_mut();
             let [st1, st2] = &mut s.0;
             swap(&mut *st2, &mut *self);
-            self.set_from_f64(st2.to_f64().sqrt() * (1.0 + 1e-12)); // first guess, made a bit higher
+            // first guess, made a bit higher. f64's own error here is ~2e-16),
+            // so +1e-15 keeps it above the real root
+            self.set_from_f64(st2.to_f64().sqrt() * (1.0 + 1e-15));
 
             loop {
                 st1.clone_from(&st2);
